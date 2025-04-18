@@ -1,4 +1,3 @@
-12 937
 Strategy Overview
 
 This Advanced Scalping Strategy is built upon the High-Low Cloud Trend indicator and optimized for short-term trading. The strategy excels at capturing quick price movements after a significant trend has been established and price returns to test key levels. By combining volume analysis, momentum oscillators, and precise entry conditions, it aims to increase win rate while minimizing false signals.
