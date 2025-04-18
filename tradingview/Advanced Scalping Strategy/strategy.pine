@@ -1,0 +1,301 @@
+// Advanced Scalping Strategy Based on High-Low Cloud Trend
+// Built upon ChartPrime's High-Low Cloud Trend Indicator
+// 
+
+//@version=5
+strategy("Advanced Scalping Strategy [High-Low Cloud Trend]", overlay = true, max_labels_count = 500, 
+         default_qty_type = strategy.percent_of_equity, default_qty_value = 100,
+         pyramiding = 1, calc_on_order_fills = true)
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙐𝙎𝙀𝙍 𝙄𝙉𝙋𝙐𝙏𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+len = input.int(35, title="Lookback Period") 
+
+// Mean Reversion Points and Cloud Settings
+bool mean_rev = input.bool(true, "Mean Reversion Points")
+bool show_p_v = input.bool(false, "Volume/Price")
+
+// Colors for trend identification
+color_up = input.color(color.aqua, "Bullish Color")
+color_dn = input.color(color.orange, "Bearish Color")
+
+// Strategy Settings
+use_strategy = input.bool(true, "Enable Trading Strategy", group="Strategy Settings")
+take_cloud_retest = input.bool(true, "Take Cloud Retest Signals (Priority)", group="Strategy Settings")
+take_mean_rev_signals = input.bool(false, "Also Take Mean Reversion Signals", group="Strategy Settings")
+take_cross_signals = input.bool(false, "Also Take Cloud Cross Signals", group="Strategy Settings")
+only_trade_with_trend = input.bool(true, "Only Trade With Trend Direction", group="Strategy Settings")
+pyramiding = input.int(1, "Pyramiding", minval=1, maxval=10, group="Strategy Settings")
+
+// Volume Filter Settings
+use_volume_filter = input.bool(true, "Use Volume Filter", group="Volume Filter")
+volume_period = input.int(20, "Volume SMA Period", minval=1, group="Volume Filter")
+volume_threshold = input.float(1.5, "Volume Threshold (× Average)", minval=0.1, step=0.1, group="Volume Filter")
+
+// RSI Filter Settings
+use_rsi_filter = input.bool(true, "Use RSI Filter", group="RSI Filter")
+rsi_period = input.int(14, "RSI Period", minval=1, group="RSI Filter")
+rsi_oversold = input.int(30, "RSI Oversold Level", minval=1, maxval=100, group="RSI Filter")
+rsi_overbought = input.int(70, "RSI Overbought Level", minval=1, maxval=100, group="RSI Filter")
+
+// MACD Filter Settings
+use_macd_filter = input.bool(true, "Use MACD Filter", group="MACD Filter")
+macd_fast = input.int(12, "MACD Fast Period", minval=1, group="MACD Filter")
+macd_slow = input.int(26, "MACD Slow Period", minval=1, group="MACD Filter")
+macd_signal = input.int(9, "MACD Signal Period", minval=1, group="MACD Filter")
+
+// Risk Management Settings
+use_sl_tp = input.bool(true, "Use Stop Loss & Take Profit", group="Risk Management")
+sl_mult = input.float(1.5, "Stop Loss ATR Multiplier", minval=0.1, step=0.1, group="Risk Management")
+tp_mult = input.float(2.0, "Take Profit ATR Multiplier", minval=0.1, step=0.1, group="Risk Management")
+atr_period = input.int(14, "ATR Period", minval=1, group="Risk Management")
+max_trades_per_day = input.int(5, "Max Trades Per Day", minval=1, group="Risk Management")
+
+// Filter Visualization
+show_filters = input.bool(true, "Show Filter Indicators", group="Visualization")
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙄𝙉𝘿𝙄𝘾𝘼𝙏𝙊𝙍 𝘾𝘼𝙇𝘾𝙐𝙇𝘼𝙏𝙄𝙊𝙉𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+// Draw Label Function
+drawLabel(_pivot, _style, _color, _textColor, h_l) =>
+    src = (h_l ? high[1] : low[1])
+    if _pivot
+        label.new(bar_index[1], src, str.tostring(src, show_p_v ? format.volume : format.mintick), 
+                 style =_style, color =_color, textcolor =_textColor, size = size.small)
+
+// Calculate the highest and lowest over the lookback period
+highest  = ta.highest(len)  // Highest high over the lookback period
+lowest   = ta.lowest(len)  // Lowest low over the lookback period
+
+// Calculate the highest and lowest over a shorter period (1/4 of the original period)
+highest1 = ta.highest(len / 4)  // Highest high over the shortened lookback period
+lowest1  = ta.lowest(len / 4)  // Lowest low over the shortened lookback period
+
+// Initialize the 'value' variable using 'var' to retain its value across bars
+var float value = na
+
+// Logic to update the 'value' variable based on certain conditions
+switch
+    low  == lowest  => value := highest  // Set 'value' to 'highest' when the current low equals the lowest
+    high == highest => value := lowest  // Set 'value' to 'lowest' when the current high equals the highest
+    => value := nz(value[1])           // Retain the previous 'value' if neither condition is met
+
+// Determine the 'band' value based on the relationship between 'close' and 'value'
+band  = close > value ? lowest : highest  
+band1 = close > value ? lowest1 : highest1  
+
+// Determine the color based on the relationship between 'close' and 'value'
+color trend_color = close > value ? color_up : color_dn  // Use 'color_up' for upward trends and 'color_dn' for downward trends
+
+// Trend direction (1 for bullish, -1 for bearish)
+trend_direction = close > value ? 1 : -1
+
+// Mean Reversion Conditions
+mean_rev_dn = ta.crossunder(high, band1[1]) and band1[1] == high[1] and high != band1 and not ta.cross(close, band) and band[1] == band
+mean_rev_up = ta.crossover(low, band1[1]) and band1[1] == low[1]  and low  != band1 and not ta.cross(close, band) and band[1] == band
+
+// Cloud Cross Conditions
+cloud_cross_up = ta.crossover(close, band) and band == highest
+cloud_cross_dn = ta.crossunder(close, band) and band == lowest
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙁𝙄𝙇𝙏𝙀𝙍𝙎 𝘾𝘼𝙇𝘾𝙐𝙇𝘼𝙏𝙄𝙊𝙉
+// --------------------------------------------------------------------------------------------------------------------{
+// Volume Filter
+volume_sma = ta.sma(volume, volume_period)
+volume_condition = volume > volume_sma * volume_threshold
+
+// RSI Filter
+rsi_value = ta.rsi(close, rsi_period)
+rsi_buy_condition = rsi_value < rsi_oversold
+rsi_sell_condition = rsi_value > rsi_overbought
+
+// MACD Filter
+[macd_line, signal_line, _] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+macd_buy_condition = macd_line > signal_line
+macd_sell_condition = macd_line < signal_line
+
+// ATR for Stop Loss and Take Profit
+atr_value = ta.atr(atr_period)
+
+// Combine All Filters
+buy_filter_passed = (not use_volume_filter or volume_condition) and 
+                  (not use_rsi_filter or rsi_buy_condition) and
+                  (not use_macd_filter or macd_buy_condition)
+
+sell_filter_passed = (not use_volume_filter or volume_condition) and 
+                   (not use_rsi_filter or rsi_sell_condition) and
+                   (not use_macd_filter or macd_sell_condition)
+
+// Debug info for filters
+var string filter_status = ""
+filter_status := "Vol:" + (volume_condition ? "✓" : "✗") + " RSI:" + (trend_direction > 0 ? (rsi_buy_condition ? "✓" : "✗") : (rsi_sell_condition ? "✓" : "✗")) + " MACD:" + (trend_direction > 0 ? (macd_buy_condition ? "✓" : "✗") : (macd_sell_condition ? "✓" : "✗"))
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙏𝙍𝘼𝘿𝙄𝙉𝙂 𝙎𝙄𝙂𝙉𝘼𝙇𝙎
+// --------------------------------------------------------------------------------------------------------------------{
+// Cloud Retest Signals
+// Bullish retest: Price has crossed above the cloud and now retests band1 (touches it and bounces)
+bullish_cloud_retest = trend_direction > 0 and close > band and low <= band1 and low[1] > band1[1] and close > open
+
+// Bearish retest: Price has crossed below the cloud and now retests band1 (touches it and bounces down)
+bearish_cloud_retest = trend_direction < 0 and close < band and high >= band1 and high[1] < band1[1] and close < open
+
+// Secondary signals (optional)
+long_mean_rev = mean_rev_up and take_mean_rev_signals
+long_cloud_cross = cloud_cross_up and take_cross_signals
+short_mean_rev = mean_rev_dn and take_mean_rev_signals
+short_cloud_cross = cloud_cross_dn and take_cross_signals
+
+// Combined signals - prioritizing cloud retest
+long_signal = (bullish_cloud_retest or (long_mean_rev or long_cloud_cross) and take_mean_rev_signals) and buy_filter_passed
+short_signal = (bearish_cloud_retest or (short_mean_rev or short_cloud_cross) and take_mean_rev_signals) and sell_filter_passed
+
+// Signal status for debugging
+var string signal_status = ""
+signal_status := "CloudRetest: " + (bullish_cloud_retest or bearish_cloud_retest ? "✓" : "✗") + " MeanRev:" + (long_mean_rev or short_mean_rev ? "✓" : "✗") + " CloudCross:" + (long_cloud_cross or short_cloud_cross ? "✓" : "✗")
+
+// Day trade counter
+var int trades_today = 0
+if dayofweek != dayofweek[1]  // Reset counter on a new day
+    trades_today := 0
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙎𝙏𝙍𝘼𝙏𝙀𝙂𝙔 𝙀𝙓𝙀𝘾𝙐𝙏𝙄𝙊𝙉
+// --------------------------------------------------------------------------------------------------------------------{
+// Entry conditions - focusing mainly on cloud retest signals
+longCondition = use_strategy and trades_today < max_trades_per_day and ((take_cloud_retest and bullish_cloud_retest) or (take_mean_rev_signals and long_mean_rev) or (take_cross_signals and long_cloud_cross)) and buy_filter_passed
+
+shortCondition = use_strategy and trades_today < max_trades_per_day and 
+                 ((take_cloud_retest and bearish_cloud_retest) or 
+                  (take_mean_rev_signals and short_mean_rev) or 
+                  (take_cross_signals and short_cloud_cross)) and
+                  sell_filter_passed
+
+// Apply trend filter if enabled
+if only_trade_with_trend
+    longCondition := longCondition and trend_direction > 0
+    shortCondition := shortCondition and trend_direction < 0
+
+// Execute long trades
+if longCondition
+    strategy.close("Short")  // Close any existing short positions first
+    strategy.entry("Long", strategy.long)
+    
+    if use_sl_tp
+        strategy.exit("Long TP/SL", "Long", stop=close - atr_value * sl_mult, limit=close + atr_value * tp_mult)
+    
+    trades_today := trades_today + 1
+
+// Execute short trades
+if shortCondition
+    strategy.close("Long")  // Close any existing long positions first
+    strategy.entry("Short", strategy.short)
+    
+    if use_sl_tp
+        strategy.exit("Short TP/SL", "Short", stop=close + atr_value * sl_mult, limit=close - atr_value * tp_mult)
+    
+    trades_today := trades_today + 1
+
+// --------------------------------------------------------------------------------------------------------------------}
+// 𝙑𝙄𝙎𝙐𝘼𝙇𝙄𝙕𝘼𝙏𝙄𝙊𝙉
+// --------------------------------------------------------------------------------------------------------------------{
+
+// Plot the 'band' value with a line break if there's a cross between 'close' and 'band'
+p1 = plot(ta.cross(close, band) ? na : band, 
+              title     = "Band",         
+              color     = trend_color,          
+              linewidth = 2,               
+              style     = plot.style_linebr)  
+
+// Plot 'band1', which is based on the shorter lookback period, with a transparent color
+p2 = plot(band1, 
+             title      = "Band1",           
+             color      = color.new(chart.fg_color, 90),  
+             linewidth  = 2,                  
+             style      = plot.style_linebr)  
+
+// Plot a diamond shape at the 'band' value when there's a cross between 'close' and 'band'
+plotshape(ta.cross(close, band) ? band : na,
+             location = location.absolute,  
+             style    = shape.diamond,      
+             color    = trend_color,              
+             size     = size.tiny,         
+             offset   = 1)                 
+
+// Fill the area between 'p1' and 'p2' (between 'band' and 'band1') using the gradient color
+fill(p1, p2, band1, band, color.new(trend_color, 95), color.new(trend_color, 50), fillgaps = true)
+
+if mean_rev
+    drawLabel(mean_rev_dn, label.style_label_down, color.new(trend_color, 100), chart.fg_color, true)
+    drawLabel(mean_rev_up, label.style_label_up, color.new(trend_color, 100), chart.fg_color, false)
+
+// Plot downward arrows above the bars for mean reversion down signal
+plotchar(mean_rev_dn and mean_rev? high[1] : na, 
+         "", "⬥",                    
+         location = location.absolute, 
+         color    = trend_color,              
+         size     = size.tiny,           
+         offset   = -1)
+
+// Plot upward arrows below the bars for mean reversion up signal
+plotchar(mean_rev_up and mean_rev? low[1] : na, 
+         "", "⬥",                       
+         location = location.absolute,   
+         color    = trend_color,             
+         size     = size.tiny,
+         offset   = -1)         
+
+// Plot cloud retest signals (primary focus)
+plotshape(bullish_cloud_retest, title="Cloud Retest Buy", location=location.belowbar, 
+         color=color.green, style=shape.triangleup, size=size.normal)
+plotshape(bearish_cloud_retest, title="Cloud Retest Sell", location=location.abovebar, 
+         color=color.red, style=shape.triangledown, size=size.normal)
+
+// Plot long and short signals
+plotshape(long_signal and not bullish_cloud_retest, title="Other Buy Signal", 
+         location=location.belowbar, color=color.new(color.green, 50), style=shape.triangleup, size=size.small)
+plotshape(short_signal and not bearish_cloud_retest, title="Other Sell Signal", 
+         location=location.abovebar, color=color.new(color.red, 50), style=shape.triangledown, size=size.small)
+
+// Highlight cloud retest areas
+bgcolor(bullish_cloud_retest ? color.new(color.green, 90) : bearish_cloud_retest ? color.new(color.red, 90) : na, title="Cloud Retest Background")
+
+// Display filter values if enabled
+if show_filters
+    var label filterLabel = na
+    var label signalLabel = na
+    var label tradeLabel = na
+    
+    label.delete(filterLabel)
+    label.delete(signalLabel)
+    label.delete(tradeLabel)
+    
+    if barstate.islast
+        filterInfo = "Filters: " + 
+                   (use_volume_filter ? "Vol(" + (volume_condition ? "✓" : "✗") + ") " : "") +
+                   (use_rsi_filter ? "RSI:" + str.tostring(math.round(rsi_value)) + " " : "") +
+                   (use_macd_filter ? "MACD(" + (macd_line > signal_line ? "↑" : "↓") + ") " : "") +
+                   "Trend: " + (trend_direction > 0 ? "Bullish" : "Bearish")
+        
+        signalInfo = "Signals: " +
+                   (take_mean_rev_signals ? "MeanRev(" + (mean_rev_up or mean_rev_dn ? "✓" : "✗") + ") " : "") +
+                   (take_cross_signals ? "CloudCross(" + (cloud_cross_up or cloud_cross_dn ? "✓" : "✗") + ") " : "")
+        
+        tradeInfo = "Trading: " +
+                  (long_signal ? "BUY ✓" : "BUY ✗") + " | " +
+                  (short_signal ? "SELL ✓" : "SELL ✗") + " | " +
+                  "Trades Today: " + str.tostring(trades_today) + "/" + str.tostring(max_trades_per_day)
+        
+        filterLabel := label.new(bar_index, high, filterInfo, style=label.style_label_down, 
+                             color=color.new(chart.bg_color, 15), textcolor=chart.fg_color)
+        
+        signalLabel := label.new(bar_index, high + (high * 0.01), signalInfo, style=label.style_label_down, 
+                             color=color.new(chart.bg_color, 15), textcolor=chart.fg_color)
+        
+        tradeLabel := label.new(bar_index, high + (high * 0.02), tradeInfo, style=label.style_label_down, 
+                             color=color.new(chart.bg_color, 15), textcolor=chart.fg_color)
+
+// --------------------------------------------------------------------------------------------------------------------}
