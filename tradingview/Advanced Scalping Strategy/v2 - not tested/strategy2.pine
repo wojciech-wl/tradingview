@@ -2,7 +2,7 @@
 // Built upon ChartPrime's High-Low Cloud Trend Indicator
 // Enhanced with multi-timeframe analysis, order blocks, and adaptive parameters
 
-//@version=5
+//@version=6
 strategy("Advanced Scalping Strategy v2 [High-Low Cloud Trend]", overlay = true, max_labels_count = 500, 
          default_qty_type = strategy.percent_of_equity, default_qty_value = 100,
          pyramiding = 1, calc_on_order_fills = true)
@@ -104,9 +104,7 @@ vol_range = math.max(0.001, max_observed_vol - min_observed_vol)
 norm_vol = math.max(0, math.min(1, (vol_smooth - min_observed_vol) / vol_range))
 
 // Calculate adaptive lookback length
-adapt_len = lookback_type == "Volatility-Adaptive" ? 
-    math.round(max_len - ((max_len - min_len) * norm_vol)) : 
-    fixed_len
+adapt_len = lookback_type == "Volatility-Adaptive" ? math.round(max_len - (max_len - min_len) * norm_vol) : fixed_len
 
 // Ensure we have valid lookback length
 len = math.max(min_len, math.min(max_len, adapt_len))
@@ -179,9 +177,12 @@ ema_fast = ta.ema(close, 5)
 ema_slow = ta.ema(close, 20)
 trend_strength = math.abs(ema_fast - ema_slow) / atr_value
 
+// Pre-compute cross condition
+cross_cb = ta.cross(close, band)
+
 // Mean Reversion Conditions
-mean_rev_dn = ta.crossunder(high, band1[1]) and band1[1] == high[1] and high != band1 and not ta.cross(close, band) and band[1] == band
-mean_rev_up = ta.crossover(low, band1[1]) and band1[1] == low[1]  and low  != band1 and not ta.cross(close, band) and band[1] == band
+mean_rev_dn = ta.crossunder(high, band1[1]) and band1[1] == high[1] and high != band1 and not cross_cb and band[1] == band
+mean_rev_up = ta.crossover(low, band1[1]) and band1[1] == low[1]  and low  != band1 and not cross_cb and band[1] == band
 
 // Cloud Cross Conditions
 cloud_cross_up = ta.crossover(close, band) and band == highest
@@ -194,53 +195,35 @@ cloud_cross_dn = ta.crossunder(close, band) and band == lowest
 candle_body_percent = math.abs(close - open) / (high - low) * 100
 
 // Order Block Detection Logic with enhanced criteria
-is_bullish_ob = use_order_blocks ? (
-    // Strong price rejection
-    low[1] - low > (high[1] - low[1]) * ob_strength and 
-    // With significant body size
-    candle_body_percent[1] > ob_min_body_percent and 
-    // Prior movement condition
-    high[2] < high[1] and 
-    // Bullish candle
-    close[1] > open[1]
-) : false
+is_bullish_ob = use_order_blocks ? low[1] - low > (high[1] - low[1]) * ob_strength and candle_body_percent[1] > ob_min_body_percent and high[2] < high[1] and close[1] > open[1] : false
 
-is_bearish_ob = use_order_blocks ? (
-    // Strong price rejection
-    high[1] - high > (high[1] - low[1]) * ob_strength and 
-    // With significant body size
-    candle_body_percent[1] > ob_min_body_percent and
-    // Prior movement condition
-    low[2] > low[1] and 
-    // Bearish candle
-    close[1] < open[1]
-) : false
+is_bearish_ob = use_order_blocks ? high[1] - high > (high[1] - low[1]) * ob_strength and candle_body_percent[1] > ob_min_body_percent and low[2] > low[1] and close[1] < open[1] : false
 
 // Store order blocks with timestamp and age tracking
 var bull_ob_price = array.new_float(ob_lookback, na)
 var bear_ob_price = array.new_float(ob_lookback, na)
-var bull_ob_time = array.new_int(ob_lookback, na)
-var bear_ob_time = array.new_int(ob_lookback, na)
+var bull_ob_bar = array.new_int(ob_lookback, na) // Store bar index instead of time
+var bear_ob_bar = array.new_int(ob_lookback, na) // Store bar index instead of time
 var bull_ob_age = array.new_int(ob_lookback, 0)
 var bear_ob_age = array.new_int(ob_lookback, 0)
 
 // Process new order blocks
 if is_bullish_ob
     array.unshift(bull_ob_price, low[1])
-    array.unshift(bull_ob_time, time[1])
+    array.unshift(bull_ob_bar, bar_index[1]) // Store bar index
     array.unshift(bull_ob_age, 0)
     if array.size(bull_ob_price) > ob_lookback
         array.pop(bull_ob_price)
-        array.pop(bull_ob_time)
+        array.pop(bull_ob_bar)
         array.pop(bull_ob_age)
 
 if is_bearish_ob
     array.unshift(bear_ob_price, high[1])
-    array.unshift(bear_ob_time, time[1])
+    array.unshift(bear_ob_bar, bar_index[1]) // Store bar index
     array.unshift(bear_ob_age, 0)
     if array.size(bear_ob_price) > ob_lookback
         array.pop(bear_ob_price)
-        array.pop(bear_ob_time)
+        array.pop(bear_ob_bar)
         array.pop(bear_ob_age)
 
 // Increment age of existing order blocks
@@ -287,13 +270,9 @@ rsi_value = ta.rsi(close, rsi_period)
 // In strong uptrends: LOWER the overbought threshold to stay in trades longer
 // In strong downtrends: RAISE the oversold threshold to avoid catching falling knives
 dynamic_adjustment = trend_strength * rsi_trend_sensitivity
-dynamic_oversold = trend_direction > 0 
-    ? math.max(15, rsi_oversold - dynamic_adjustment) // Lower oversold in uptrend
-    : math.min(45, rsi_oversold + dynamic_adjustment) // Raise oversold in downtrend
+dynamic_oversold = trend_direction > 0 ? math.max(15, rsi_oversold - dynamic_adjustment) : math.min(45, rsi_oversold + dynamic_adjustment) // Lower oversold in uptrend / Raise oversold in downtrend
     
-dynamic_overbought = trend_direction < 0 
-    ? math.min(85, rsi_overbought + dynamic_adjustment) // Raise overbought in downtrend
-    : math.max(55, rsi_overbought - dynamic_adjustment) // Lower overbought in uptrend
+dynamic_overbought = trend_direction < 0 ? math.min(85, rsi_overbought + dynamic_adjustment) : math.max(55, rsi_overbought - dynamic_adjustment) // Raise overbought in downtrend / Lower overbought in uptrend
 
 rsi_buy_condition = rsi_value < (use_dynamic_rsi ? dynamic_oversold : rsi_oversold)
 rsi_sell_condition = rsi_value > (use_dynamic_rsi ? dynamic_overbought : rsi_overbought)
@@ -312,25 +291,13 @@ ob_buy_condition = not use_order_blocks or bull_ob_near
 ob_sell_condition = not use_order_blocks or bear_ob_near
 
 // Combine All Filters
-buy_filter_passed = (not use_volume_filter or volume_condition) and 
-                   (not use_rsi_filter or rsi_buy_condition) and
-                   (not use_macd_filter or macd_buy_condition) and
-                   mtf_buy_condition and
-                   ob_buy_condition
+buy_filter_passed = (not use_volume_filter or volume_condition) and (not use_rsi_filter or rsi_buy_condition) and (not use_macd_filter or macd_buy_condition) and mtf_buy_condition and ob_buy_condition
 
-sell_filter_passed = (not use_volume_filter or volume_condition) and 
-                    (not use_rsi_filter or rsi_sell_condition) and
-                    (not use_macd_filter or macd_sell_condition) and
-                    mtf_sell_condition and
-                    ob_sell_condition
+sell_filter_passed = (not use_volume_filter or volume_condition) and (not use_rsi_filter or rsi_sell_condition) and (not use_macd_filter or macd_sell_condition) and mtf_sell_condition and ob_sell_condition
 
 // Debug info for filters
 var string filter_status = ""
-filter_status := "Vol:" + (volume_condition ? "✓" : "✗") + 
-                " RSI:" + (trend_direction > 0 ? (rsi_buy_condition ? "✓" : "✗") : (rsi_sell_condition ? "✓" : "✗")) + 
-                " MACD:" + (trend_direction > 0 ? (macd_buy_condition ? "✓" : "✗") : (macd_sell_condition ? "✓" : "✗")) +
-                " MTF:" + (trend_direction > 0 ? (mtf_buy_condition ? "✓" : "✗") : (mtf_sell_condition ? "✓" : "✗")) +
-                " OB:" + (trend_direction > 0 ? (ob_buy_condition ? "✓" : "✗") : (ob_sell_condition ? "✓" : "✗"))
+filter_status := "Vol:" + (volume_condition ? "✓" : "✗") + " RSI:" + (trend_direction > 0 ? (rsi_buy_condition ? "✓" : "✗") : (rsi_sell_condition ? "✓" : "✗")) + " MACD:" + (trend_direction > 0 ? (macd_buy_condition ? "✓" : "✗") : (macd_sell_condition ? "✓" : "✗")) + " MTF:" + (trend_direction > 0 ? (mtf_buy_condition ? "✓" : "✗") : (mtf_sell_condition ? "✓" : "✗")) + " OB:" + (trend_direction > 0 ? (ob_buy_condition ? "✓" : "✗") : (ob_sell_condition ? "✓" : "✗"))
 
 // --------------------------------------------------------------------------------------------------------------------}
 // 𝙏𝙍𝘼𝘿𝙄𝙉𝙂 𝙎𝙄𝙂𝙉𝘼𝙇𝙎
@@ -367,11 +334,11 @@ if dayofweek != dayofweek[1]  // Reset counter on a new day
 // Entry conditions - focusing mainly on cloud retest signals
 longCondition = use_strategy and trades_today < max_trades_per_day and ((take_cloud_retest and bullish_cloud_retest) or (take_mean_rev_signals and long_mean_rev) or (take_cross_signals and long_cloud_cross)) and buy_filter_passed
 
-shortCondition = use_strategy and trades_today < max_trades_per_day and 
-                 ((take_cloud_retest and bearish_cloud_retest) or 
-                  (take_mean_rev_signals and short_mean_rev) or 
-                  (take_cross_signals and short_cloud_cross)) and
-                  sell_filter_passed
+shortCondition = use_strategy and trades_today < max_trades_per_day
+                 and ((take_cloud_retest and bearish_cloud_retest)
+                 or (take_mean_rev_signals and short_mean_rev)
+                 or (take_cross_signals and short_cloud_cross))
+                 and sell_filter_passed
 
 // Apply trend filter if enabled
 if only_trade_with_trend
@@ -454,7 +421,7 @@ if strategy.position_size == 0
 // --------------------------------------------------------------------------------------------------------------------{
 
 // Plot the 'band' value with a line break if there's a cross between 'close' and 'band'
-p1 = plot(ta.cross(close, band) ? na : band, 
+p1 = plot(cross_cb ? na : band,
               title     = "Band",         
               color     = trend_color,          
               linewidth = 2,               
@@ -468,7 +435,7 @@ p2 = plot(band1,
              style      = plot.style_linebr)  
 
 // Plot a diamond shape at the 'band' value when there's a cross between 'close' and 'band'
-plotshape(ta.cross(close, band) ? band : na,
+plotshape(cross_cb ? band : na,
              location = location.absolute,  
              style    = shape.diamond,      
              color    = trend_color,              
@@ -483,17 +450,22 @@ if mean_rev
     drawLabel(mean_rev_up, label.style_label_up, color.new(trend_color, 100), chart.fg_color, false)
 
 // Plot downward arrows above the bars for mean reversion down signal
-plotchar(mean_rev_dn and mean_rev? high[1] : na, 
-         "", "⬥",                    
-         location = location.absolute, 
-         color    = trend_color,              
-         size     = size.tiny,           
-         offset   = -1)
+// Pre-compute label conditions
+dn_label_cond = mean_rev_dn and mean_rev
+up_label_cond = mean_rev_up and mean_rev
+
+// Plot downward arrows above the bars for mean reversion down signal
+plotchar(dn_label_cond ? high[1] : na,
+         title = "", text = "⬥",
+         location = location.absolute,
+         color = trend_color,
+         size = size.tiny,
+         offset = -1)
 
 // Plot upward arrows below the bars for mean reversion up signal
-plotchar(mean_rev_up and mean_rev? low[1] : na, 
-         "", "⬥",                       
-         location = location.absolute,   
+plotchar(up_label_cond ? low[1] : na,
+         title = "", text = "⬥",
+         location = location.absolute,
          color    = trend_color,             
          size     = size.tiny,
          offset   = -1)         
@@ -519,15 +491,13 @@ if highlight_order_blocks and use_order_blocks
         level = array.get(bull_ob_price, i)
         age = array.get(bull_ob_age, i)
         if not na(level) and age >= ob_min_age and age <= ob_max_age
-            line.new(array.get(bull_ob_time, i), level, time, level, 
-                    color=color.new(color.green, 50), width=2, style=line.style_dashed)
+            line.new(x1 = array.get(bull_ob_bar, i), y1 = level, x2 = bar_index, y2 = level, xloc = xloc.bar_index, color=color.new(color.green, 50), width=2, style=line.style_dashed)
     
     for i = 0 to math.min(array.size(bear_ob_price), ob_lookback) - 1
         level = array.get(bear_ob_price, i)
         age = array.get(bear_ob_age, i)
         if not na(level) and age >= ob_min_age and age <= ob_max_age
-            line.new(array.get(bear_ob_time, i), level, time, level, 
-                    color=color.new(color.red, 50), width=2, style=line.style_dashed)
+            line.new(x1 = array.get(bear_ob_bar, i), y1 = level, x2 = bar_index, y2 = level, xloc = xloc.bar_index, color=color.new(color.red, 50), width=2, style=line.style_dashed)
 
 // Display filter values if enabled
 if show_filters
@@ -544,35 +514,29 @@ if show_filters
     label.delete(volLabel)
     
     if barstate.islast
-        filterInfo = "Filters: " + 
-                   (use_volume_filter ? "Vol(" + (volume_condition ? "✓" : "✗") + ") " : "") +
-                   (use_rsi_filter ? "RSI:" + str.tostring(math.round(rsi_value)) + 
-                   (use_dynamic_rsi ? "→" + str.tostring(math.round(trend_direction > 0 ? dynamic_oversold : dynamic_overbought)) : "") + " " : "") +
-                   (use_macd_filter ? "MACD(" + (macd_line > signal_line ? "↑" : "↓") + ") " : "") +
-                   "Trend: " + (trend_direction > 0 ? "Bullish" : "Bearish")
+        filterInfo = "Filters: "
+                   + (use_volume_filter ? "Vol(" + (volume_condition ? "✓" : "✗") + ") " : "")
+                   + (use_rsi_filter ? "RSI:" + str.tostring(math.round(rsi_value))
+                   + (use_dynamic_rsi ? "→" + str.tostring(math.round(trend_direction > 0 ? dynamic_oversold : dynamic_overbought)) : "") + " " : "")
+                   + (use_macd_filter ? "MACD(" + (macd_line > signal_line ? "↑" : "↓") + ") " : "")
+                   + "Trend: " + (trend_direction > 0 ? "Bullish" : "Bearish")
         
-        signalInfo = "Signals: " +
-                   (take_cloud_retest ? "CloudRetest(" + (bullish_cloud_retest or bearish_cloud_retest ? "✓" : "✗") + ") " : "") +
-                   (take_mean_rev_signals ? "MeanRev(" + (mean_rev_up or mean_rev_dn ? "✓" : "✗") + ") " : "") +
-                   (take_cross_signals ? "CloudCross(" + (cloud_cross_up or cloud_cross_dn ? "✓" : "✗") + ") " : "")
+        signalInfo = "Signals: "
+                   + (take_cloud_retest ? "CloudRetest(" + (bullish_cloud_retest or bearish_cloud_retest ? "✓" : "✗") + ") " : "")
+                   + (take_mean_rev_signals ? "MeanRev(" + (mean_rev_up or mean_rev_dn ? "✓" : "✗") + ") " : "")
+                   + (take_cross_signals ? "CloudCross(" + (cloud_cross_up or cloud_cross_dn ? "✓" : "✗") + ") " : "")
         
-        tradeInfo = "Trading: " +
-                  (long_signal ? "BUY ✓" : "BUY ✗") + " | " +
-                  (short_signal ? "SELL ✓" : "SELL ✗") + " | " +
-                  "Trades Today: " + str.tostring(trades_today) + "/" + str.tostring(max_trades_per_day)
+        tradeInfo = "Trading: "
+                  + (long_signal ? "BUY ✓" : "BUY ✗") + " | "
+                  + (short_signal ? "SELL ✓" : "SELL ✗") + " | "
+                  + "Trades Today: " + str.tostring(trades_today) + "/" + str.tostring(max_trades_per_day)
         
-        mtfInfo = "MTF: " + (use_mtf_confirmation ? mtf_timeframe + "m " + 
-                  (mtf_direction > 0 ? "Bullish" : mtf_direction < 0 ? "Bearish" : "Neutral") + 
-                  (mtf_strict ? " (Strict)" : "") : "Disabled") +
-                  (use_order_blocks ? " | OB: " + (bull_ob_near ? "Bull✓" : "Bull✗") + "/" + (bear_ob_near ? "Bear✓" : "Bear✗") : "")
+        mtfInfo = "MTF: " + (use_mtf_confirmation ? mtf_timeframe + "m "
+                  + (mtf_direction > 0 ? "Bullish" : mtf_direction < 0 ? "Bearish" : "Neutral")
+                  + (mtf_strict ? " (Strict)" : "") : "Disabled")
+                  + (use_order_blocks ? " | OB: " + (bull_ob_near ? "Bull✓" : "Bull✗") + "/" + (bear_ob_near ? "Bear✓" : "Bear✗") : "")
         
-        volInfo = "Lookback: " + str.tostring(len) + (lookback_type == "Volatility-Adaptive" ? " (Adaptive)" : " (Fixed)") +
-                 " | Vol: " + str.tostring(math.round(vol_percent, 2)) + "%" +
-                 " | " + (use_trailing ? "Trailing" + (strategy.position_size != 0 ? 
-                    (strategy.position_size > 0 ? 
-                        (not na(longTrailPrice) ? " @ " + str.tostring(math.round(longTrailPrice, 2)) : " Waiting") : 
-                        (not na(shortTrailPrice) ? " @ " + str.tostring(math.round(shortTrailPrice, 2)) : " Waiting")) 
-                    : "") : "Fixed TP/SL")
+        volInfo = "Lookback: " + str.tostring(len) + (lookback_type == "Volatility-Adaptive" ? " (Adaptive)" : " (Fixed)") + " | Vol: " + str.tostring(math.round(vol_percent, 2)) + "%" + " | " + (use_trailing ? "Trailing" + (strategy.position_size != 0 ? (strategy.position_size > 0 ? (not na(longTrailPrice) ? " @ " + str.tostring(math.round(longTrailPrice, 2)) : " Waiting") : (not na(shortTrailPrice) ? " @ " + str.tostring(math.round(shortTrailPrice, 2)) : " Waiting")) : "") : "Fixed TP/SL")
         
         filterLabel := label.new(bar_index, high, filterInfo, style=label.style_label_down, 
                              color=color.new(chart.bg_color, 15), textcolor=chart.fg_color)
