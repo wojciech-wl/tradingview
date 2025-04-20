@@ -556,3 +556,6 @@ if show_filters
                              color=color.new(chart.bg_color, 15), textcolor=chart.fg_color)
 
 // --------------------------------------------------------------------------------------------------------------------}
+
+// Plot ATR value in a separate pane
+plot(atr_value, title="ATR", color=color.yellow, style=plot.style_line)
