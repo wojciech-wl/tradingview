@@ -1,0 +1,107 @@
+//@version=6
+strategy("Fabio Scalping Strategy v1", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, pyramiding=1)
+
+// === INPUTS ===
+// Bias / VWAP
+use_bias = input.bool(true, "Use VWAP Bias")
+
+// Order Block settings
+ob_strength = input.float(1.5, "OB Range Multiplier (ATR)", minval=0.5)
+ob_max_age   = input.int(30, "Max OB Age (bars)")
+ob_buffer    = input.float(0.5, "OB Price Buffer (%)", step=0.1)
+
+// Volume / Momentum settings
+vol_period   = input.int(20, "Volume SMA Period")
+vol_mult     = input.float(2.0, "Volume Spike Multiplier", step=0.1)
+body_thresh  = input.float(0.6, "Impulse Body / Range Threshold", step=0.1)
+
+// Stop-loss / trailing
+atr_period   = input.int(14, "ATR Period")
+sl_buffer    = input.float(1.0, "SL ATR Multiplier", step=0.1)
+trail_vol_mult = input.float(2.0, "Trail Volume Spike Multiplier", step=0.1)
+
+// === INDICATORS ===
+// VWAP bias
+vwap_val = ta.vwap(hl2)
+bias = use_bias ? (close > vwap_val ? 1 : close < vwap_val ? -1 : 0) : 0
+plot(use_bias ? vwap_val : na, "VWAP", color=color.orange)
+
+// ATR for range/SL
+atr = ta.atr(atr_period)
+
+// Order Block detection & storage
+var float last_bull_ob = na
+var int   bull_ob_bar = na
+var float last_bear_ob = na
+var int   bear_ob_bar = na
+
+// Identify wide-range candles as OB
+isBullOB = (high - low) > atr * ob_strength and close > open
+isBearOB = (high - low) > atr * ob_strength and close < open
+
+if isBullOB
+    last_bull_ob := low
+    bull_ob_bar   := bar_index
+if isBearOB
+    last_bear_ob := high
+    bear_ob_bar   := bar_index
+
+// Age check
+bull_ob_valid = not na(last_bull_ob) and (bar_index - bull_ob_bar) <= ob_max_age
+bear_ob_valid = not na(last_bear_ob) and (bar_index - bear_ob_bar) <= ob_max_age
+
+// Volume spike & impulse candle
+vol_sma = ta.sma(volume, vol_period)
+vol_spike = volume > vol_sma * vol_mult
+body_ratio = math.abs(close - open) / (high - low)
+impulse_up   = vol_spike and close > open and body_ratio > body_thresh
+impulse_down = vol_spike and close < open and body_ratio > body_thresh
+
+// Support / resistance proximity to OB
+ob_buffer_px = atr * (ob_buffer / 100)
+bull_near = bull_ob_valid and (low <= last_bull_ob + ob_buffer_px and low >= last_bull_ob - ob_buffer_px)
+bear_near = bear_ob_valid and (high >= last_bear_ob - ob_buffer_px and high <= last_bear_ob + ob_buffer_px)
+
+// Follow-up candle: current bar follows impulse direction
+follow_up_up   = impulse_up[1]   and close > open
+follow_up_down = impulse_down[1] and close < open
+
+// === ENTRY CONDITIONS ===
+bull_entry = (bias >= 0) and impulse_up and bull_near and follow_up_up
+bear_entry = (bias <= 0) and impulse_down and bear_near and follow_up_down
+
+// Plot signals
+plotshape(bull_entry, title="Long Entry", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.large)
+plotshape(bear_entry, title="Short Entry", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.large)
+
+// === POSITION MANAGEMENT ===
+// Initial SL at OB level
+var float sl_level = na
+if (bull_entry)
+    strategy.entry("Long", strategy.long)
+    sl_level := last_bull_ob - atr * sl_buffer
+if (bear_entry)
+    strategy.entry("Short", strategy.short)
+    sl_level := last_bear_ob + atr * sl_buffer
+
+// Apply initial SL
+if not na(sl_level)
+    strategy.exit("Exit", stop=sl_level)
+
+// Trailing SL on volume spike
+if strategy.position_size > 0 and volume > vol_sma * trail_vol_mult
+    new_sl = close - atr * sl_buffer
+    sl_level := math.max(sl_level, new_sl)
+    strategy.exit("Trail Long", stop=sl_level)
+if strategy.position_size < 0 and volume > vol_sma * trail_vol_mult
+    new_sl = close + atr * sl_buffer
+    sl_level := math.min(sl_level, new_sl)
+    strategy.exit("Trail Short", stop=sl_level)
+
+// Reset SL when flat
+if strategy.position_size == 0
+    sl_level := na
+
+// === PLOTS & DEBUG ===
+plotshape(isBullOB, title="Bull OB", location=location.belowbar, color=color.new(color.green,80), style=shape.circle, size=size.tiny)
+plotshape(isBearOB, title="Bear OB", location=location.abovebar, color=color.new(color.red,80), style=shape.circle, size=size.tiny)
