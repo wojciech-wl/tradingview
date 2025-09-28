@@ -1,0 +1,281 @@
+// @version=6
+strategy("Fabio Scalping v3 (Long-Only + OF Filters + Counter-Long + Labels, clean-fix)",
+     overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, pyramiding=1)
+
+// ===== INPUTS =====
+use_bias        = input.bool(true,   "Use VWAP Bias (trend filter)")
+long_only       = input.bool(true,   "Long only")
+trade_session   = input.session("0930-1600", "Trade session (exchange tz)")
+cooldown_bars   = input.int(5, "Cooldown bars after entry", minval=0)
+min_rr          = input.float(1.2, "Min R:R to nearest target", step=0.1)
+
+// Kontra-long (łapanie dołka)
+enable_counter  = input.bool(true, "Enable Counter-Long (under VWAP)")
+cum_len         = input.int(50, "CumDelta length (counter-long)", minval=10, maxval=500)
+pivot_len       = input.int(5,  "Pivot window for divergence",   minval=3,  maxval=20)
+min_rr_counter  = input.float(1.0, "Min R:R (counter-long to VWAP)", step=0.1)
+
+// OB
+ob_strength     = input.float(1.5, "OB Range Multiplier (ATR)", minval=0.5)
+ob_max_age      = input.int(30, "Max OB Age (bars)")
+ob_buffer_pct   = input.float(0.5, "OB Price Buffer (%)", step=0.1)
+
+// Volume / momentum
+vol_period      = input.int(20, "Volume SMA Period")
+vol_mult        = input.float(2.0, "Volume Spike Multiplier", step=0.1)
+body_thresh     = input.float(0.6, "Impulse Body/Range Threshold", step=0.1)
+
+// Risk
+atr_period      = input.int(14, "ATR Period")
+sl_buffer       = input.float(1.0, "SL ATR Multiplier", step=0.1)
+trail_vol_mult  = input.float(2.0, "Trail Volume Spike Multiplier", step=0.1)
+
+// ===== UI =====
+show_labels             = input.bool(true,  "Show BUY/COUNTER/NO TRADE labels")
+show_no_trade_labels    = input.bool(true,  "Show NO TRADE labels")
+no_trade_min_gap_bars   = input.int(30,     "Min bars between NO TRADE labels", minval=1)
+color_candles           = input.bool(true,  "Color candles on signals")
+
+// ===== CORE INDICATORS =====
+vwap_val = ta.vwap(hl2)
+plot(use_bias ? vwap_val : na, "VWAP", color=color.orange)
+atr      = ta.atr(atr_period)
+in_sess  = not na(time(timeframe.period, trade_session))
+
+// ---- Delta & Session Delta (proxy) ----
+delta        = close > open ? volume : close < open ? -volume : 0.0
+var float sessDelta = na
+isNewSession = ta.change(time("D")) != 0
+if isNewSession
+    sessDelta := delta
+else
+    sessDelta := nz(sessDelta[1]) + delta
+
+// Rolling Cumulative Delta (ostatnie cum_len barów)
+cumDelta = ta.cum(delta) - nz(ta.cum(delta)[cum_len])
+
+// ===== ORDER BLOCKS =====
+var float last_bull_ob = na
+var int   bull_ob_bar  = na
+var float last_bear_ob = na
+var int   bear_ob_bar  = na
+
+isBullOB = (high - low) > atr * ob_strength and close > open
+isBearOB = (high - low) > atr * ob_strength and close < open
+if isBullOB
+    last_bull_ob := low
+    bull_ob_bar  := bar_index
+if isBearOB
+    last_bear_ob := high
+    bear_ob_bar  := bar_index
+
+bull_valid   = not na(last_bull_ob) and (bar_index - bull_ob_bar) <= ob_max_age
+bear_valid   = not na(last_bear_ob) and (bar_index - bear_ob_bar) <= ob_max_age
+ob_buf_px    = (ob_buffer_pct/100.0) * atr
+bull_near    = bull_valid and math.abs(low  - last_bull_ob) <= ob_buf_px
+bear_near    = bear_valid and math.abs(high - last_bear_ob) <= ob_buf_px
+
+// ===== IMPULSE & FOLLOW-UP =====
+vol_sma      = ta.sma(volume, vol_period)
+vol_spike    = volume > vol_sma * vol_mult
+rng          = math.max(high - low, syminfo.mintick)
+body_ratio   = rng > 0 ? math.abs(close - open) / rng : 0.0
+impulse_up   = vol_spike and close > open and body_ratio > body_thresh
+impulse_down = vol_spike and close < open and body_ratio > body_thresh
+follow_up_up   = impulse_up[1]   and close > open
+follow_up_down = impulse_down[1] and close < open
+
+// ===== IMBALANCE & ABSORPTION =====
+upperReject = (high - math.max(open, close)) >= 2.0 * math.abs(close - open)
+lowerReject = (math.min(open, close) - low)  >= 2.0 * math.abs(close - open)
+isAbsorb    = volume > vol_sma * 1.5 and math.abs(close - open) <= 0.25 * rng
+
+// ===== VWAP BIAS =====
+bias = use_bias ? (close > vwap_val ? 1 : close < vwap_val ? -1 : 0) : 0
+
+// ===== TREND LONG =====
+green_delta = delta > 0
+bull_entry_raw = (bias >= 0) and in_sess and impulse_up and follow_up_up and bull_near and green_delta and sessDelta >= 0
+
+// ===== RED FLAGS (łagodniejsze, z filtrem) =====
+// Wygładź Session Delta, żeby nie reagować na szum
+sd_ema_len   = input.int(20, "SessionDelta EMA len", minval=3)
+sessDeltaEMA = ta.ema(sessDelta, sd_ema_len)
+
+// Zlicz flaki: 1) bear_near (opór z OB), 2) upperReject (górne odrzucenie),
+// 3) słaba presja kupna (sessDeltaEMA < 0)
+flags_count = (bear_near ? 1 : 0) + (upperReject ? 1 : 0) + ((sessDeltaEMA < 0) ? 1 : 0)
+
+// próg ile flag musi być, by blokować trade (domyślnie 2)
+flags_threshold = input.int(2, "NO TRADE min flags (0-3)", minval=0, maxval=3)
+
+// teraz „red_flags_long” to dopiero sytuacja, gdy mamy ≥ threshold
+red_flags_long = flags_count >= flags_threshold
+
+sl_long_trend  = (bull_valid ? last_bull_ob : low) - atr * sl_buffer
+risk_pts_trend = close - sl_long_trend
+swingHigh(len) =>
+    ta.pivothigh(high, len, len)
+var int phLen = 5
+tgt_price_trend = na(swingHigh(phLen)) ? na : swingHigh(phLen)
+reward_pts_trend = na(tgt_price_trend) ? na : tgt_price_trend - close
+rr_ok_trend = na(reward_pts_trend) or (reward_pts_trend / risk_pts_trend) >= min_rr
+
+// ===== COOLDOWN =====
+var int last_entry_bar = na
+cool_ok = na(last_entry_bar) or (bar_index - last_entry_bar >= cooldown_bars)
+
+// ===== COUNTER-LONG (pod VWAP, dywergencja) =====
+pricePL = ta.pivotlow(low, pivot_len, pivot_len)
+cumPL   = ta.pivotlow(cumDelta, pivot_len, pivot_len)
+
+var float pLow_prev = na
+var float pLow_last = na
+if not na(pricePL)
+    pLow_prev := pLow_last
+    pLow_last := pricePL
+
+var float cLow_prev = na
+var float cLow_last = na
+if not na(cumPL)
+    cLow_prev := cLow_last
+    cLow_last := cumPL
+
+bull_div = not na(pLow_prev) and not na(pLow_last) and not na(cLow_prev) and not na(cLow_last) and
+           pLow_last < pLow_prev and cLow_last > cLow_prev
+
+counter_raw = enable_counter and in_sess and (close < vwap_val) and bull_div and (isAbsorb or lowerReject) and green_delta
+
+sl_long_counter  = low - atr * sl_buffer
+risk_pts_counter = close - sl_long_counter
+reward_pts_counter = vwap_val - close
+rr_ok_counter = (reward_pts_counter > 0) and ((reward_pts_counter / risk_pts_counter) >= min_rr_counter)
+
+// ===== DECISION =====
+long_trend_ok    = bull_entry_raw and not red_flags_long and rr_ok_trend and cool_ok
+long_counter_ok  = counter_raw     and rr_ok_counter     and cool_ok
+short_ok         = not long_only and (bias <= 0) and in_sess and impulse_down and follow_up_down and bear_near and delta < 0 and sessDelta <= 0 and cool_ok
+
+// ===== ORDERS =====
+var bool in_counter_trade = false
+if long_trend_ok
+    strategy.entry("Long", strategy.long)
+    last_entry_bar := bar_index
+    in_counter_trade := false
+if long_counter_ok
+    strategy.entry("Counter Long", strategy.long)
+    last_entry_bar := bar_index
+    in_counter_trade := true
+if short_ok
+    strategy.entry("Short", strategy.short)
+    last_entry_bar := bar_index
+    in_counter_trade := false
+if strategy.position_size == 0
+    in_counter_trade := false
+
+// ===== SL & trailing =====
+var float sl_level = na
+if strategy.position_size > 0
+    base_sl = in_counter_trade ? sl_long_counter : sl_long_trend
+    sl_level := base_sl
+    strategy.exit("Exit L", stop=sl_level)
+    if volume > vol_sma * trail_vol_mult
+        tsl = close - atr * sl_buffer
+        sl_level := math.max(sl_level, tsl)
+        strategy.exit("Trail L", stop=sl_level)
+    oneR = strategy.position_avg_price + (strategy.position_avg_price - sl_level)
+    if close >= oneR
+        strategy.exit("BE L", stop=strategy.position_avg_price)
+if strategy.position_size < 0
+    base_sl = (bear_valid ? last_bear_ob : high) + atr * sl_buffer
+    sl_level := base_sl
+    strategy.exit("Exit S", stop=sl_level)
+    if volume > vol_sma * trail_vol_mult
+        tsl = close + atr * sl_buffer
+        sl_level := math.min(sl_level, tsl)
+        strategy.exit("Trail S", stop=sl_level)
+
+// ===== NO TRADE (czytelne, bez spamu) =====
+
+// okno łaski po potwierdzonym impulsie (⚡ + ✔)
+grace_bars = input.int(10, "Grace bars after long signal", minval=0)
+var int last_long_signal_bar = na
+if long_trend_ok or long_counter_ok
+    last_long_signal_bar := bar_index
+in_grace = not na(last_long_signal_bar) and (bar_index - last_long_signal_bar <= grace_bars)
+
+// bazowy zakaz: poniżej VWAP (gdy używasz biasu) lub poza sesją
+base_block = (use_bias and bias < 0) or (not in_sess)
+
+// finalny stan NO TRADE: bazowy blok LUB (≥2 flagi) – ALE nie w oknie łaski i nie gdy mamy long sygnał
+no_trade_state = (base_block or red_flags_long) and (not in_grace) and (not long_trend_ok) and (not long_counter_ok)
+
+// — anty-spam etykiet —
+// (używamy już zdefiniowanych inputów: show_no_trade_labels, no_trade_min_gap_bars)
+
+var int prev_no_trade = na
+var int last_no_trade_bar = na
+show_no_trade_now = false
+
+if na(prev_no_trade)
+    show_no_trade_now := no_trade_state
+else
+    if no_trade_state and prev_no_trade == 0
+        show_no_trade_now := true
+    else if no_trade_state and show_no_trade_labels and (na(last_no_trade_bar) or bar_index - last_no_trade_bar >= no_trade_min_gap_bars)
+        show_no_trade_now := true
+
+if show_no_trade_now
+    last_no_trade_bar := bar_index
+prev_no_trade := no_trade_state ? 1 : 0
+
+// (NO TRADE label rendered later in the LABELS section)
+
+// ===== LABELS =====
+buy_ok_label   = show_labels and long_trend_ok
+counter_label  = show_labels and long_counter_ok
+no_trade_label = show_labels and show_no_trade_labels and show_no_trade_now
+
+plotshape(buy_ok_label,   title="BUY OK",        location=location.belowbar, style=shape.labelup,
+          text="BUY OK", color=color.new(color.green,0), textcolor=color.white, size=size.tiny)
+plotshape(counter_label,  title="COUNTER LONG",  location=location.belowbar, style=shape.labelup,
+          text="COUNTER LONG", color=color.new(color.teal,0), textcolor=color.white, size=size.tiny)
+plotshape(no_trade_label, title="NO TRADE",      location=location.abovebar, style=shape.labeldown,
+          text="NO TRADE", color=color.new(color.red,0), textcolor=color.white, size=size.tiny)
+
+// ===== Kolory świec =====
+barcolor(color_candles ? (long_trend_ok ? color.new(color.green, 0) : long_counter_ok ? color.new(color.teal, 0) : na) : na)
+
+// ===== Dodatki wizualne =====
+plotshape(isBullOB,   title="Bull OB", location=location.belowbar, color=color.new(color.green,80), style=shape.circle, size=size.tiny)
+plotshape(isBearOB,   title="Bear OB", location=location.abovebar, color=color.new(color.red,80),   style=shape.circle, size=size.tiny)
+plotshape(impulse_up, title="Impulse", location=location.abovebar, color=color.yellow, style=shape.square, size=size.tiny, text="⚡")
+plotshape(follow_up_up, title="Follow", location=location.belowbar, color=color.blue, style=shape.triangleup, size=size.small, text="✔")
+
+// ⛔ USUNIĘTE TŁA (żeby było czytelniej)
+// bgcolor(upperReject ? color.new(color.red,85) : na, title="Upper Rejection")
+// bgcolor(lowerReject ? color.new(color.green,88) : na, title="Lower Rejection")
+
+plotshape(isAbsorb, title="Absorption", location=location.belowbar, color=color.orange, style=shape.triangledown, size=size.tiny)
+
+// ===== Legend =====
+var table legend = table.new(position.top_right, 2, 9, border_color=color.gray, frame_color=color.gray)
+if barstate.islast
+    table.cell(legend, 0, 0, "Symbol", text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 1, 0, "Meaning", text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 0, 1, "🟢◯ Bull OB", text_color=color.green)
+    table.cell(legend, 1, 1, "Order Block support")
+    table.cell(legend, 0, 2, "🔴◯ Bear OB", text_color=color.red)
+    table.cell(legend, 1, 2, "Order Block resistance")
+    table.cell(legend, 0, 3, "⚡", text_color=color.yellow)
+    table.cell(legend, 1, 3, "Impulse volume spike")
+    table.cell(legend, 0, 4, "✔", text_color=color.blue)
+    table.cell(legend, 1, 4, "Follow-up confirmation")
+    table.cell(legend, 0, 5, "BUY OK", text_color=color.green)
+    table.cell(legend, 1, 5, "Trend long conditions OK")
+    table.cell(legend, 0, 6, "COUNTER LONG", text_color=color.teal)
+    table.cell(legend, 1, 6, "Long pod VWAP: dywergencja + absorpcja/odrzucenie")
+    table.cell(legend, 0, 7, "NO TRADE", text_color=color.red)
+    table.cell(legend, 1, 7, "Flagi ryzyka / poza VWAP / poza sesją")
+    table.cell(legend, 0, 8, "Δcum", text_color=color.blue)
+    table.cell(legend, 1, 8, "Cumulative Delta (len=" + str.tostring(cum_len) + ")")
