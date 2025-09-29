@@ -1,4 +1,4 @@
-# Fabio
+# Fabio od Fabio Valentini-ego - strategia opiera się na stylu gry Fabia i prezentuje ogólne podejście do handlowania na giełdzie.
 
 ---
 
