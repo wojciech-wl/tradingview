@@ -1,4 +1,4 @@
-# Fabio – s> **Cel**: Chcemy wchodzić w transakcje w "ważnych" miejscach na wykresie, gdzie wcześniej było dużo walki między kupującymi a sprzedającymi. Szukamy potwierdzenia w postaci nagłego wzrostu zainteresowania (duży wolumen) i dodatkowych wskazówek z "mapy wolumenu" (Volume Profile).
+# Fabio
 
 ---
 
@@ -11,8 +11,6 @@
 > Traktuj ten skrypt jak zaawansowany kalkulator i system alarmowy, a nie jak autopilota. Każda decyzja o transakcji na prawdziwe pieniądze należy do Ciebie.
 
 ---
-
-## 💡 Giełda i ta strategia w Pine Script v8
 
 **Wersja pliku:** README v1.0
 **Script name:** `Fabio` (TradingView, Pine v8)
@@ -29,13 +27,11 @@ Skrypt analizuje rynek pod kątem:
 *   **Nagłych wzrostów zainteresowania (impulsów wolumenu)**,
 *   **Przewagi kupujących lub sprzedających (delta proxy)**.
 
-Sygnały pojawiają się tylko wtedy, gdy cena znajdzie się w pobliżu tych ważnych stref i dostanie dodatkowe potwierdzenie. Poziomy zabezpieczające (Stop Loss) są sugerowane na podstawie aktualnej zmienności rynku.
-
-> **Cel (po ludzku)**: Chcemy wchodzić w transakcje w "ważnych" miejscach na wykresie, gdzie wcześniej było dużo walki między kupującymi a sprzedającymi. Szukamy potwierdzenia w postaci nagłego wzrostu zainteresowania (duży wolumen) i dodatkowych wskazówek z "mapy wolumenu" (Volume Profile).
+Sygnały pojawiają się tylko wtedy, gdy cena znajdzie się w pobliżu tych ważnych stref i dostanie dodatkowe potwierdzenie.
 
 ---
 
-## 💡 Giełda i ta strategia - wyjaśnienie dla początkujących
+## 💡 Wyjaśnienie dla początkujących
 
 Zanim zaczniesz, przeczytaj to. Serio. To najważniejsza część.
 
