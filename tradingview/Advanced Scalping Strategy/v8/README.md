@@ -1,4 +1,18 @@
-# Fabio – strategia w Pine Script v8
+# Fabio – s> **Cel**: Chcemy wchodzić w transakcje w "ważnych" miejscach na wykresie, gdzie wcześniej było dużo walki między kupującymi a sprzedającymi. Szukamy potwierdzenia w postaci nagłego wzrostu zainteresowania (duży wolumen) i dodatkowych wskazówek z "mapy wolumenu" (Volume Profile).
+
+---
+
+> **WAŻNE OSTRZEŻENIE DLA POCZĄTKUJĄCYCH**
+> Ta strategia **NIE HANDLUJE SAMA** na Twoim koncie u brokera (np. w banku, na Binance itp.). Jest to **narzędzie analityczne** do TradingView, które:
+> 1.  **Pokazuje na wykresie sygnały**, gdzie MOŻNA by rozważyć transakcję.
+> 2.  **Symuluje wyniki** w module "Strategy Tester", żebyś mógł sprawdzić jej historyczną skuteczność.
+> 3.  **Oblicza sugerowane poziomy Stop Loss**, które musisz ustawić **RĘCZNIE** u swojego brokera.
+>
+> Traktuj ten skrypt jak zaawansowany kalkulator i system alarmowy, a nie jak autopilota. Każda decyzja o transakcji na prawdziwe pieniądze należy do Ciebie.
+
+---
+
+## 💡 Giełda i ta strategia w Pine Script v8
 
 **Wersja pliku:** README v1.0
 **Script name:** `Fabio` (TradingView, Pine v8)
@@ -7,23 +21,74 @@
 
 ## 1) Opis ogólny
 
-`Fabio` to zaawansowana strategia intraday/swing łącząca **bias VWAP**, **Order Blocki (OB)**, **impuls wolumenowy**, prosty **proxy delta (tick‑rule)**, **Bollinger Bands (BB)** oraz **Volume Profile (POC/VA)** jako kontekst. Wejścia filtruje bliskością do świeżych OB i potwierdza świecą „follow‑up". Zarządzanie pozycją oparte jest o **ATR stop** i **wolumenowy trailing**.
+`Fabio` to zestaw wskaźników, który pomaga podejmować decyzje w handlu krótkoterminowym (w ciągu jednego dnia lub na kilka dni). Działa jak zaawansowana deska rozdzielcza w samochodzie, łącząc kilka kluczowych informacji, aby znaleźć potencjalnie dobre momenty do wejścia w transakcję.
 
-> **Cel**: selektywne wejścia w pobliżu stref popytu/podaży (OB), tylko gdy ruch jest pchany przez wyraźny impuls wolumenowy, potwierdzony kierunkowo i wspierany przez Volume Profile.
+Skrypt analizuje rynek pod kątem:
+*   **Głównego trendu (VWAP)**,
+*   **Ważnych stref cenowych z przeszłości (Order Blocks)**,
+*   **Nagłych wzrostów zainteresowania (impulsów wolumenu)**,
+*   **Przewagi kupujących lub sprzedających (delta proxy)**.
+
+Sygnały pojawiają się tylko wtedy, gdy cena znajdzie się w pobliżu tych ważnych stref i dostanie dodatkowe potwierdzenie. Poziomy zabezpieczające (Stop Loss) są sugerowane na podstawie aktualnej zmienności rynku.
+
+> **Cel (po ludzku)**: Chcemy wchodzić w transakcje w "ważnych" miejscach na wykresie, gdzie wcześniej było dużo walki między kupującymi a sprzedającymi. Szukamy potwierdzenia w postaci nagłego wzrostu zainteresowania (duży wolumen) i dodatkowych wskazówek z "mapy wolumenu" (Volume Profile).
 
 ---
 
-## 2) Funkcje i komponenty
+## 💡 Giełda i ta strategia - wyjaśnienie dla początkujących
 
-* **VWAP Bias** – trend filter: long gdy `close > VWAP`, short gdy `close < VWAP`.
-* **Order Block (OB)** – prosty detektor świec o zakresie > `ATR * ob_strength`. Zapamiętuje ostatni bull/bear OB przez `ob_max_age` barów.
-* **Proximity buffer** – wejścia tylko, gdy cena dotyka strefy OB w buforze `ob_buffer` (w % ATR).
-* **Impulse candle** – wolumen `> SMA(vol) * vol_mult` oraz korpus/zakres > `body_thresh` i kierunek świecy zgodny.
-* **Follow‑up candle** – kolejna świeca zgodna z kierunkiem impulsu (potwierdzenie momentum).
-* **Delta bubbles (proxy)** – **body‑priority + tick‑rule fallback**: znak delty najpierw z koloru korpusu, jeśli doji → z tick‑rule (zmiana close vs close[1]), jeśli nadal 0 → poprzedni znak. Bąble rysowane dla `|delta| ≥ bubble_min` (osobny próg **display**), kolor wg znaku, rozmiar skokowo wg siły (5 poziomów: 3-5k, 5-10k, 10-25k, 25-50k, 50k+).
-* **BB (opcjonalnie)** – kontekst zmienności: `length = 50`, `mult = 2.0` (domyślnie). Nie generuje sygnałów, tylko tło.
-* **Volume Profile (NOWOŚĆ!)** – lekkoniski VP z POC (Point of Control) i Value Area (70% wolumenu). Opcjonalny filtr wejść względem POC. Czerwona linia = POC, turkusowe = VAH/VAL.
-* **Risk management** – SL wg ATR od OB; trailing aktywuje się przy skoku wolumenu (`trail_vol_mult`).
+Zanim zaczniesz, przeczytaj to. Serio. To najważniejsza część.
+
+### Czym są te "wskaźniki"?
+
+Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
+*   **Wykres ceny** to droga, którą widzisz przed sobą.
+*   **Wskaźniki** to Twoja deska rozdzielcza i GPS. Mówią Ci, jaka jest pogoda (trend), czy silnik ma moc (wolumen) i gdzie są potencjalne korki lub stacje benzynowe (strefy wsparcia/oporu).
+
+### Komponenty strategii "Fabio" - Twoja deska rozdzielcza:
+
+*   **VWAP (pomarańczowa linia)**
+    *   **Co to jest?** Średnia cena, po której handlowano danego dnia, uwzględniająca wolumen.
+    *   **Po co to?** To nasz **kompas trendu**.
+    *   **Jak używać?** Działa jak kompas trendu. Generalnie, gdy cena jest **nad** pomarańczową linią, sytuacja jest korzystniejsza dla pozycji **długich (kupna)**. Traktuj to jako ważną wskazówkę, a nie żelazną regułę.
+
+*   **Order Block (OB) (zielone i czerwone kółka)**
+    *   **Co to jest?** To "pamięć" rynku. Duża świeca z przeszłości, gdzie było mnóstwo zleceń. Zielone kółko to strefa, gdzie kiedyś mocno kupowano (popyt). Czerwone - gdzie mocno sprzedawano (podaż).
+    *   **Po co to?** To nasze **potencjalne strefy wsparcia (podłoga) i oporu (sufit)**. Cena często reaguje w tych miejscach.
+    *   **Jak używać?** Czekamy, aż cena wróci w pobliże takiej strefy. Chcemy kupić tanio przy "podłodze" (zielone kółko) lub sprzedać drogo przy "suficie" (czerwone kółko).
+
+*   **Impuls Wolumenowy (żółta błyskawica ⚡)**
+    *   **Co to jest?** Świeca, na której wolumen (ilość transakcji) nagle wystrzelił w górę.
+    *   **Po co to?** To sygnał, że "grube ryby" (instytucje) weszły do gry. To **potwierdzenie siły**.
+    *   **Jak używać?** Sam impuls to za mało. To zaproszenie do obserwacji. Czekamy na kolejną świecę, która potwierdzi kierunek.
+
+*   **Follow-up Candle (niebieski ptaszek ✔)**
+    *   **Co to jest?** Świeca, która pojawia się **po** impulsie i idzie w tym samym kierunku.
+    *   **Po co to?** To **potwierdzenie, że impuls nie był przypadkiem**.
+    *   **Jak używać?** Dopiero gdy zobaczysz parę **⚡ + ✔**, zaczynasz myśleć o wejściu w transakcję.
+
+*   **Delta Bubbles (kolorowe bąbelki)**
+    *   **Co to jest?** Uproszczony wskaźnik pokazujący, czy na danej świecy przeważała agresja kupujących (zielony bąbel) czy sprzedających (czerwony bąbel).
+    *   **Po co to?** To dodatkowe **potwierdzenie siły kierunku**.
+    *   **Jak używać?** Jeśli myślisz o kupnie, chcesz widzieć zielone bąble. Jeśli o sprzedaży - czerwone. Im większy bąbel, tym większa agresja.
+
+*   **Bollinger Bands (BB) (niebieskie wstęgi)**
+    *   **Co to jest?** Dwie linie, które pokazują, jak bardzo "rozciągnięta" jest cena w stosunku do swojej średniej.
+    *   **Po co to?** Dają **kontekst zmienności**.
+    *   **Jak używać?** Gdy wstęgi są wąskie, rynek "śpi". Gdy się rozszerzają, zaczyna się akcja. Cena przy górnej wstędze jest "droga", przy dolnej "tania". To tylko informacja, nie sygnał!
+
+*   **Volume Profile (VP) (histogram z boku i 3 linie)**
+    *   **Co to jest?** To **mapa wolumenu**. Pokazuje, na jakich **poziomach cenowych** (a nie w jakim czasie) było najwięcej handlu.
+    *   **Po co to?** Pokazuje "uczciwą wartość" i strefy, które rynek uważa za ważne.
+    *   **Jak używać?**
+        *   **🔴 POC (Point of Control) - czerwona linia**: **Król wolumenu**. Poziom z największą ilością transakcji. Działa jak **magnes** na cenę.
+        *   **🔵 VAH (Value Area High) - górna turkusowa linia**: Górna granica "strefy komfortu" rynku. Często działa jak **opór (sufit)**.
+        *   **🔵 VAL (Value Area Low) - dolna turkusowa linia**: Dolna granica "strefy komfortu". Często działa jak **wsparcie (podłoga)**.
+
+*   **Risk Management (Zarządzanie Ryzykiem)**
+    *   **Co to jest?** Najważniejszy element! To Twój plan, ile możesz stracić na jednej transakcji.
+    *   **Po co to?** Żeby nie wyzerować konta.
+    *   **Jak używać?** Strategia **sugeruje** poziom **Stop Loss (SL)** - zlecenia, które zamyka transakcję z małą stratą. Musisz je ustawić **RĘCZNIE** u swojego brokera.
 
 ---
 
@@ -177,23 +242,35 @@
 
 ---
 
-## 5) Logika sygnałów (TL;DR)
+## 5) Logika sygnałów (Jak to wszystko działa razem?)
 
-**Long entry** gdy łącznie:
+Myślenie strategii jest proste i logiczne. Szuka ona **zbiegu kilku sygnałów naraz**.
 
-1. **Bias**: `close > VWAP` (lub `use_bias = false`).
-2. **OB**: poziom bull OB świeży (`ob_max_age`) i cena blisko (`ob_buffer` w % ATR).
-3. **Impulse**: świeca z wolumenowym spike'iem + duży korpus w górę.
-4. **Follow‑up**: kolejna świeca rosnąca.
-5. **Delta**: `delta > delta_min` (wolumen pchający w górę; **`delta_min` dotyczy wejścia**, nie rysowania bąbli).
-6. **Volume Profile**: opcjonalnie `close >= POC` (gdy `vp_use_filter = true`).
+**Kiedy strategia myśli o KUPNIE (Long)?**
 
-**Short entry** simetrycznie, lecz pod VWAP, z bear OB i opcjonalnie `close <= POC`.
+1.  **Kompas (VWAP)**: Cena musi być **powyżej** pomarańczowej linii (trend wzrostowy).
+2.  **Lokalizacja (OB)**: Cena musi być **blisko** zielonego kółka (strefa popytu). Kupujemy "tanio".
+3.  **Siła (Impuls ⚡)**: Musi pojawić się żółta błyskawica (wzrost zainteresowania).
+4.  **Potwierdzenie (Follow-up ✔)**: Musi pojawić się niebieski ptaszek (potwierdzenie kierunku).
+5.  **Agresja (Delta)**: Musi pojawić się zielony bąbel (przewaga kupujących).
+6.  **Mapa (VP)**: (Opcjonalnie) Cena jest powyżej czerwonej linii POC (handlujemy po "silnej" stronie rynku).
 
-**Stop‑Loss**:
+**Dopiero gdy WSZYSTKIE te warunki są spełnione, na wykresie pojawia się zielona strzałka "KUP"**.
 
-* Ustawiany od **krawędzi odpowiedniego OB** z buforem `ATR * sl_buffer`.
-* **Trailing SL**: gdy `volume > SMA(vol) * trail_vol_mult`, SL podciągany o `ATR * sl_buffer` na korzyść pozycji.
+**Kiedy strategia myśli o SPRZEDAŻY (Short)?**
+
+Analogicznie, ale na odwrót:
+1.  **Kompas (VWAP)**: Cena **poniżej** pomarańczowej linii.
+2.  **Lokalizacja (OB)**: Cena **blisko** czerwonego kółka (strefa podaży). Sprzedajemy "drogo".
+3.  **Siła (Impuls ⚡)**: Jest żółta błyskawica.
+4.  **Potwierdzenie (Follow-up ✔)**: Jest niebieski ptaszek w dół.
+5.  **Agresja (Delta)**: Jest czerwony bąbel.
+6.  **Mapa (VP)**: (Opcjonalnie) Cena jest poniżej czerwonej linii POC.
+
+**A co ze Stop-Lossem (Twoje bezpieczeństwo)?**
+
+*   **Początkowy SL**: Poziom SL jest **sugerowany i rysowany** na wykresie. Jeśli kupujesz przy zielonym kółku, sugerowany SL jest pod nim. Jeśli sprzedajesz przy czerwonym, SL jest nad nim. **Musisz go ustawić ręcznie u brokera!**
+*   **Przesuwanie SL (Trailing)**: Jeśli transakcja idzie w dobrym kierunku i pojawi się kolejny duży wolumen, strategia **zaktualizuje sugerowany poziom SL** na wykresie, żeby pokazać, gdzie można by zabezpieczyć część zysku. **Tę zmianę również musisz wprowadzić ręcznie u brokera.**
 
 ---
 
@@ -303,7 +380,7 @@ A: To normalny efekt dodatkowego filtra. Możesz wyłączyć `vp_use_filter` i u
 * [ ] **POC/VA** wspiera lub nie przeszkadza kierunkowi?
 * [ ] **SL** i **TP** policzone (≥1R)?
 * [ ] Spread, zmienność i newsy OK?
-* [ ] Zerknij na **futures Nasdaq** – czy kierunek i momentum wspierają Twój trade?
+* [ ] Zerknij na indeksy przed sesją na **futures Nasdaq** w trakcie na ineks nasdaq oraz QQQ – czy kierunek i momentum wspierają Twój trade?
 
 ---
 
@@ -333,14 +410,3 @@ Ten skrypt i README mają charakter **edukacyjny**. To **nie** jest rekomendacja
 © 2025 – **licencja należy do Wojtasa** – na beke, ale serio, do prywatnego użytku, bez gwarancji.
 
 ---
-
-## 14) Pomysły na rozwój
-
-* Filtr sesji (`input.session`) i auto‑blokada poza godzinami.
-* Zaawansowana detekcja OB (SMC, FVG, BOS/CHOCH).
-* **Enhanced Volume Profile**: VWAP anchored VP, multi-timeframe POC.
-* **Market Profile integration**: TPO charts, initial balance, value area migration.
-* Własny menedżer take‑profit (poziomy BB/VPVR/ADR + POC confluence).
-* Integracja z realnym order‑flow (feed L2/T&S) – jeśli dostępny.
-* **VP-based position sizing**: większe pozycje przy wejściach blisko POC.
-* Labeling sygnałów R/R na wykresie i statystyki trade‑by‑trade.
