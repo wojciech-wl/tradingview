@@ -4,6 +4,21 @@
 **Script name:** `Fabio` (TradingView, Pine v6)
 
 ---
+0) TradingView – instalacja i start
+
+Wejdź na tradingview.com i załóż darmowe konto (Sign Up).
+Potwierdź e‑mail i zaloguj się.
+Zainstaluj aplikację TradingView:
+Desktop: dostępna dla Windows/macOS z poziomu strony (Download App).
+Mobile: pobierz z Google Play (Android) lub App Store (iOS).
+Po zalogowaniu zsynchronizujesz wykresy i ustawienia między przeglądarką, desktopem i telefonem.
+Na telefonie możesz otworzyć wykres, wyszukać spółkę/ETF, dodać własne wskaźniki/skrypty i mieć podgląd w ruchu.
+Jak wgrać skrypt z tego repo do TradingView:
+Skopiuj cały kod strategii (z pliku .pine).
+W TradingView otwórz zakładkę Pine Editor (na dole ekranu, tylko w wersji web/desktop).
+Wklej kod i kliknij Add to Chart.
+Zapisz skrypt do swojego profilu (Save → nadaj nazwę, np. „Fabio”).
+Skrypt pojawi się na liście Twoich wskaźników i możesz go włączać także z telefonu (zakładka Indicators → My Scripts).
 
 ## 1) Opis ogólny
 
@@ -199,7 +214,7 @@ A: Utrzymaj VWAP bias, podnieś `vol_mult`, wymagaj dotknięcia OB, filtruj sesj
 ## 13) Licencja & zastrzeżenia
 
 Ten skrypt i README mają charakter **edukacyjny**. To **nie** jest rekomendacja inwestycyjna. Handel na rynkach finansowych wiąże się z ryzykiem utraty kapitału. Używaj na własną odpowiedzialność, uwzględniając opłaty i poślizgi.
-© 2025 – **licencja należy do Wojtasa** – na beke, ale serio, do prywatnego użytku, bez gwarancji.
+© 2025 – **licencja należy do Wojtasa** – ale serio, do prywatnego użytku, bez gwarancji.
 
 ---
 
