@@ -213,15 +213,7 @@ A: Utrzymaj VWAP bias, podnieś `vol_mult`, wymagaj dotknięcia OB, filtruj sesj
 
 ## 13) Licencja & zastrzeżenia
 
-Ten skrypt i README mają charakter **edukacyjny**. To **nie** jest rekomendacja inwestycyjna. Handel na rynkach finansowych wiąże się z ryzykiem utraty kapitału. Używaj na własną odpowiedzialność, uwzględniając opłaty i poślizgi.
+Ten skrypt i README mają charakter **edukacyjny**. To **nie** jest rekomendacja inwestycyjna. Handel na rynkach finansowych wiąże się z ryzykiem utraty kapitału. Używaj na własną odpowiedzialność, uwzględniając opłaty i prowizje.
 © 2025 – **licencja należy do Wojtasa** – ale serio, do prywatnego użytku, bez gwarancji.
 
 ---
-
-## 14) Pomysły na rozwój
-
-* Filtr sesji (`input.session`) i auto‑blokada poza godzinami.
-* Zaawansowana detekcja OB (SMC, FVG, BOS/CHOCH).
-* Własny menedżer take‑profit (poziomy BB/VPVR/ADR).
-* Integracja z realnym order‑flow (feed L2/T&S) – jeśli dostępny.
-* Labeling sygnałów R/R na wykresie i statystyki trade‑by‑trade.
