@@ -27,23 +27,115 @@
 
 ---
 
-## 0) TradingView – instalacja i start
+## 0) TradingView – pełny setup dla laika (krok po kroku)
 
-1. Wejdź na [tradingview.com](https://www.tradingview.com/) i załóż darmowe konto (Sign Up).
-2. Potwierdź e‑mail i zaloguj się.
-3. Zainstaluj aplikację TradingView:
+### 🚀 Rejestracja i podstawowa konfiguracja
 
-   * **Desktop**: dostępna dla Windows/macOS z poziomu strony (Download App).
-   * **Mobile**: pobierz z Google Play (Android) lub App Store (iOS).
-4. Po zalogowaniu zsynchronizujesz wykresy i ustawienia między przeglądarką, desktopem i telefonem.
-5. Na telefonie możesz otworzyć wykres, wyszukać spółkę/ETF, dodać własne wskaźniki/skrypty i mieć podgląd w ruchu.
-6. **Jak wgrać skrypt z tego repo do TradingView:**
+1. **Rejestracja konta**:
+   * Wejdź na [tradingview.com](https://www.tradingview.com/)
+   * Kliknij **"Sign Up"** (prawy górny róg)
+   * Wpisz e-mail, hasło i username (lub zaloguj przez Google/Apple)
+   * **WAŻNE**: Potwierdź adres e-mail (sprawdź spam!)
 
-   * Skopiuj cały kod strategii (z pliku `.pine`).
-   * W TradingView otwórz zakładkę **Pine Editor** (na dole ekranu, tylko w wersji web/desktop).
-   * Wklej kod i kliknij **Add to Chart**.
-   * Zapisz skrypt do swojego profilu (Save → nadaj nazwę, np. „Fabio v8").
-   * Skrypt pojawi się na liście Twoich wskaźników i możesz go włączać także z telefonu (zakładka Indicators → My Scripts).
+2. **Pierwsze logowanie**:
+   * Po potwierdzeniu maila zaloguj się na [tradingview.com](https://www.tradingview.com/)
+   * Wybierz plan: **darmowy wystarczy na start** (Basic = 0$/miesiąc)
+   * Możesz pominąć ankietę o doświadczeniu
+
+3. **Instalacja aplikacji** (opcjonalnie, ale warto):
+   * **Desktop**: Na stronie głównej → "Download App" → wybierz Windows/Mac
+   * **Mobile**: Google Play (Android) lub App Store (iOS) → szukaj "TradingView"
+   * **Synchronizacja**: Po zalogowaniu wszystko się zsynchronizuje między urządzeniami
+
+### 📊 Podstawy obsługi TradingView
+
+4. **Pierwszy wykres**:
+   * Na stronie głównej kliknij **"Chart"** (górny pasek menu)
+   * W polu wyszukiwania wpisz symbol (np. "AAPL", "SPY", "TSLA")
+   * Wybierz timeframe (M1, M5, M15, H1, D1) na górnym pasku
+   * **Tip**: do strategii Fabio polecam M5-M15 na start
+
+5. **Orientacja w interfejsie**:
+   * **Lewy pasek**: narzędzia do rysowania linii, poziomów
+   * **Górny pasek**: symbol, timeframe, ustawienia wykresu
+   * **Prawy pasek**: lista obserwowanych, newsy, pomysły
+   * **Dolny pasek**: tu będzie **Pine Editor** (kluczowy dla nas!)
+
+### 🛠️ Wgrywanie strategii Fabio v8 (szczegółowo)
+
+6. **Pobranie kodu strategii**:
+   * Otwórz plik `fabio&bb&bubbles.pine` z folderu **v8** tego repozytorium
+   * **Zaznacz CAŁY kod** (Ctrl+A) i **skopiuj** (Ctrl+C)
+   * **Sprawdź**: kod powinien zaczynać się od `// @version=6`
+
+7. **Otwarcie Pine Editor**:
+   * W TradingView (wersja web/desktop) kliknij **"Pine Editor"** na dolnym pasku
+   * Jeśli nie widzisz, kliknij trzy kropki "..." na dole → "Pine Editor"
+   * **Mobile**: Pine Editor nie jest dostępny w aplikacji mobilnej!
+
+8. **Wklejenie i dodanie strategii**:
+   * W Pine Editor **usuń** domyślny kod (zazwyczaj jakiś przykład)
+   * **Wklej** skopiowany kod strategii Fabio v8 (Ctrl+V)
+   * Kliknij **"Add to Chart"** (niebieski przycisk, prawy górny róg editora)
+   * **Sukces**: na wykresie pojawią się sygnały, wskaźniki i **Volume Profile**!
+
+9. **Zapisywanie strategii**:
+   * Kliknij **"Save"** w Pine Editor
+   * Nadaj nazwę: **"Fabio v8 + VP"** (żeby odróżnić od innych wersji)
+   * Teraz strategia jest zapisana w Twoim profilu
+
+### 📱 Dostęp z telefonu
+
+10. **Używanie na mobile**:
+    * Otwórz aplikację TradingView na telefonie
+    * Wybierz wykres i symbol
+    * Kliknij **"Indicators"** (ikona wykresu na dole)
+    * Przejdź do zakładki **"My Scripts"**
+    * Znajdź **"Fabio v8 + VP"** i kliknij, żeby dodać do wykresu
+
+### ⚙️ Pierwsze ustawienia
+
+11. **Konfiguracja strategii**:
+    * Na wykresie kliknij na nazwę strategii **"Fabio"** (góra wykresu)
+    * Wybierz **"Settings"** (ikona koła zębatego)
+    * **Zostawiaj domyślne wartości na start** - są dobrze dobrane!
+    * **NOWOŚĆ v8**: możesz włączyć `vp_use_filter` dla dodatkowego filtra POC
+
+12. **Ustawienia wykresu** (opcjonalnie):
+    * Kliknij prawym na wykres → **"Settings"**
+    * **Symbol**: ustaw "Extended Hours" na OFF (sesja regularna)
+    * **Appearance**: wybierz motyw (ciemny polecam)
+    * **Trading**: możesz włączyć "Show positions on chart"
+
+### 🎯 Pierwsze kroki z strategią
+
+13. **Testowanie na papierze**:
+    * **NIE HANDLUJ NA PRAWDZIWYCH PIENIĄDZACH od razu!**
+    * Używaj **Strategy Tester** (zakładka na dole) do sprawdzenia wyników
+    * Obserwuj sygnały na żywo przez kilka dni
+    * **NOWOŚĆ**: obserwuj jak cena reaguje na POC (czerwona linia) i VA (turkusowe)
+
+14. **Najczęstsze problemy dla laików**:
+    * **"Nie widzę sygnałów"**: sprawdź czy strategia jest włączona na wykresie
+    * **"Za dużo/mało sygnałów"**: zmień `delta_min`, `vol_mult` lub włącz `vp_use_filter`
+    * **"Nie widzę Volume Profile"**: sprawdź czy `show_vp = true` w ustawieniach
+    * **"Nie działa na telefonie"**: strategia musi być najpierw wgrana przez przeglądarkę
+    * **"Błąd w kodzie"**: sprawdź czy skopiowałeś CAŁY kod ze WSZYSTKIMI znaczkami
+
+### 💡 Dodatkowe tipy dla początkujących (v8)
+
+15. **Edukacja przed tradingiem**:
+    * Przeczytaj CAŁY ten README (sekcje 5-11 szczególnie!)
+    * Przetestuj strategię na danych historycznych
+    * Zacznij od papierowego tradingu (symulacja)
+    * **Poznaj Volume Profile**: obserwuj POC jako magnes cenowy
+
+16. **Bezpieczeństwo**:
+    * **Nigdy nie inwestuj więcej niż możesz stracić**
+    * Zacznij od małych kwot (1-2% kapitału na trade)
+    * Używaj stop-lossów (strategia ma je wbudowane)
+    * Nie używaj dźwigni finansowej na początku
+    * **Volume Profile to dodatkowy kontekst**, nie zastępuje analizy fundamentalnej
 
 ---
 

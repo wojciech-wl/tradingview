@@ -1,6 +1,108 @@
-# Fabio – strategia w Pine Script v6
+# Fabio – strategia w Pine Scr### 🚀 Rejestracja i podstawowa konfiguracja
 
-**Wersja pliku:** README v1.0
+1. **Rejestracja konta**:
+   * Wejdź na [tradingview.com](https://www.tradingview.com/)
+   * Kliknij **"Sign Up"** (prawy górny róg)
+   * Wpisz e-mail, hasło i username (lub zaloguj przez Google/Apple)
+   * **WAŻNE**: Potwierdź adres e-mail (sprawdź spam!)
+
+2. **Pierwsze logowanie**:
+   * Po potwierdzeniu maila zaloguj się na [tradingview.com](https://www.tradingview.com/)
+   * Wybierz plan: **darmowy wystarczy na start** (Basic = 0$/miesiąc)
+   * Możesz pominąć ankietę o doświadczeniu
+
+3. **Instalacja aplikacji** (opcjonalnie, ale warto):
+   * **Desktop**: Na stronie głównej → "Download App" → wybierz Windows/Mac
+   * **Mobile**: Google Play (Android) lub App Store (iOS) → szukaj "TradingView"
+   * **Synchronizacja**: Po zalogowaniu wszystko się zsynchronizuje między urządzeniami
+
+### 📊 Podstawy obsługi TradingView
+
+4. **Pierwszy wykres**:
+   * Na stronie głównej kliknij **"Chart"** (górny pasek menu)
+   * W polu wyszukiwania wpisz symbol (np. "AAPL", "SPY", "TSLA")
+   * Wybierz timeframe (M1, M5, M15, H1, D1) na górnym pasku
+   * **Tip**: do strategii Fabio polecam M5-M15 na start
+
+5. **Orientacja w interfejsie**:
+   * **Lewy pasek**: narzędzia do rysowania linii, poziomów
+   * **Górny pasek**: symbol, timeframe, ustawienia wykresu
+   * **Prawy pasek**: lista obserwowanych, newsy, pomysły
+   * **Dolny pasek**: tu będzie **Pine Editor** (kluczowy dla nas!)
+
+### 🛠️ Wgrywanie strategii Fabio (szczegółowo)
+
+6. **Pobranie kodu strategii**:
+   * Otwórz plik `fabio&bb&bubbles.pine` z tego repozytorium
+   * **Zaznacz CAŁY kod** (Ctrl+A) i **skopiuj** (Ctrl+C)
+   * **Sprawdź**: kod powinien zaczynać się od `// @version=6`
+
+7. **Otwarcie Pine Editor**:
+   * W TradingView (wersja web/desktop) kliknij **"Pine Editor"** na dolnym pasku
+   * Jeśli nie widzisz, kliknij trzy kropki "..." na dole → "Pine Editor"
+   * **Mobile**: Pine Editor nie jest dostępny w aplikacji mobilnej!
+
+8. **Wklejenie i dodanie strategii**:
+   * W Pine Editor **usuń** domyślny kod (zazwyczaj jakiś przykład)
+   * **Wklej** skopiowany kod strategii Fabio (Ctrl+V)
+   * Kliknij **"Add to Chart"** (niebieski przycisk, prawy górny róg editora)
+   * **Sukces**: na wykresie pojawią się sygnały i wskaźniki!
+
+9. **Zapisywanie strategii**:
+   * Kliknij **"Save"** w Pine Editor
+   * Nadaj nazwę: **"Fabio v7"** (żeby odróżnić od innych wersji)
+   * Teraz strategia jest zapisana w Twoim profilu
+
+### 📱 Dostęp z telefonu
+
+10. **Używanie na mobile**:
+    * Otwórz aplikację TradingView na telefonie
+    * Wybierz wykres i symbol
+    * Kliknij **"Indicators"** (ikona wykresu na dole)
+    * Przejdź do zakładki **"My Scripts"**
+    * Znajdź **"Fabio v7"** i kliknij, żeby dodać do wykresu
+
+### ⚙️ Pierwsze ustawienia
+
+11. **Konfiguracja strategii**:
+    * Na wykresie kliknij na nazwę strategii **"Fabio"** (góra wykresu)
+    * Wybierz **"Settings"** (ikona koła zębatego)
+    * **Zostawiaj domyślne wartości na start** - są dobrze dobrane!
+    * Możesz zmienić tylko `delta_min` (5000→3000 dla mniejszych akcji)
+
+12. **Ustawienia wykresu** (opcjonalnie):
+    * Kliknij prawym na wykres → **"Settings"**
+    * **Symbol**: ustaw "Extended Hours" na OFF (sesja regularna)
+    * **Appearance**: wybierz motyw (ciemny polecam)
+    * **Trading**: możesz włączyć "Show positions on chart"
+
+### 🎯 Pierwsze kroki z strategią
+
+13. **Testowanie na papierze**:
+    * **NIE HANDLUJ NA PRAWDZIWYCH PIENIĄDZACH od razu!**
+    * Używaj **Strategy Tester** (zakładka na dole) do sprawdzenia wyników
+    * Obserwuj sygnały na żywo przez kilka dni
+    * Notuj sobie co widzisz vs co pokazuje strategia
+
+14. **Najczęstsze problemy dla laików**:
+    * **"Nie widzę sygnałów"**: sprawdź czy strategia jest włączona na wykresie
+    * **"Za dużo/mało sygnałów"**: zmień `delta_min` lub `vol_mult` w ustawieniach
+    * **"Nie działa na telefonie"**: strategia musi być najpierw wgrana przez przeglądarkę
+    * **"Błąd w kodzie"**: sprawdź czy skopiowałeś CAŁY kod ze WSZYSTKIMI znaczkami
+
+### 💡 Dodatkowe tipy dla początkujących
+
+15. **Edukacja przed tradingiem**:
+    * Przeczytaj CAŁY ten README (sekcje 5-11 szczególnie!)
+    * Przetestuj strategię na danych historycznych
+    * Zacznij od papierowego tradingu (symulacja)
+    * Poznaj podstawy zarządzania ryzykiem
+
+16. **Bezpieczeństwo**:
+    * **Nigdy nie inwestuj więcej niż możesz stracić**
+    * Zacznij od małych kwot (1-2% kapitału na trade)
+    * Używaj stop-lossów (strategia ma je wbudowane)
+    * Nie używaj dźwigni finansowej na początkusja pliku:** README v1.0
 **Script name:** `Fabio` (TradingView, Pine v6)
 
 ---
@@ -26,7 +128,7 @@
 
 ---
 
-## 0) TradingView – instalacja i start
+## 0) TradingView – pełny setup dla laika (krok po kroku)
 
 1. Wejdź na [tradingview.com](https://www.tradingview.com/) i załóż darmowe konto (Sign Up).
 2. Potwierdź e‑mail i zaloguj się.
