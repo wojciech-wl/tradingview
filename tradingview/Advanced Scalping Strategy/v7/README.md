@@ -4,21 +4,6 @@
 **Script name:** `Fabio` (TradingView, Pine v6)
 
 ---
-0) TradingView – instalacja i start
-
-Wejdź na tradingview.com i załóż darmowe konto (Sign Up).
-Potwierdź e‑mail i zaloguj się.
-Zainstaluj aplikację TradingView:
-Desktop: dostępna dla Windows/macOS z poziomu strony (Download App).
-Mobile: pobierz z Google Play (Android) lub App Store (iOS).
-Po zalogowaniu zsynchronizujesz wykresy i ustawienia między przeglądarką, desktopem i telefonem.
-Na telefonie możesz otworzyć wykres, wyszukać spółkę/ETF, dodać własne wskaźniki/skrypty i mieć podgląd w ruchu.
-Jak wgrać skrypt z tego repo do TradingView:
-Skopiuj cały kod strategii (z pliku .pine).
-W TradingView otwórz zakładkę Pine Editor (na dole ekranu, tylko w wersji web/desktop).
-Wklej kod i kliknij Add to Chart.
-Zapisz skrypt do swojego profilu (Save → nadaj nazwę, np. „Fabio”).
-Skrypt pojawi się na liście Twoich wskaźników i możesz go włączać także z telefonu (zakładka Indicators → My Scripts).
 
 ## 1) Opis ogólny
 
@@ -38,6 +23,26 @@ Skrypt pojawi się na liście Twoich wskaźników i możesz go włączać także
 * **Delta bubbles (proxy)** – **body‑priority + tick‑rule fallback**: znak delty najpierw z koloru korpusu, jeśli doji → z tick‑rule (zmiana close vs close[1]), jeśli nadal 0 → poprzedni znak. Bąble rysowane dla `|delta| ≥ bubble_min` (osobny próg **display**), kolor wg znaku, rozmiar skokowo wg siły.
 * **BB (opcjonalnie)** – kontekst zmienności: `length = 50`, `mult = 2.0` (domyślnie). Nie generuje sygnałów, tylko tło.
 * **Risk management** – SL wg ATR od OB; trailing aktywuje się przy skoku wolumenu (`trail_vol_mult`).
+
+---
+
+## 0) TradingView – instalacja i start
+
+1. Wejdź na [tradingview.com](https://www.tradingview.com/) i załóż darmowe konto (Sign Up).
+2. Potwierdź e‑mail i zaloguj się.
+3. Zainstaluj aplikację TradingView:
+
+   * **Desktop**: dostępna dla Windows/macOS z poziomu strony (Download App).
+   * **Mobile**: pobierz z Google Play (Android) lub App Store (iOS).
+4. Po zalogowaniu zsynchronizujesz wykresy i ustawienia między przeglądarką, desktopem i telefonem.
+5. Na telefonie możesz otworzyć wykres, wyszukać spółkę/ETF, dodać własne wskaźniki/skrypty i mieć podgląd w ruchu.
+6. **Jak wgrać skrypt z tego repo do TradingView:**
+
+   * Skopiuj cały kod strategii (z pliku `.pine`).
+   * W TradingView otwórz zakładkę **Pine Editor** (na dole ekranu, tylko w wersji web/desktop).
+   * Wklej kod i kliknij **Add to Chart**.
+   * Zapisz skrypt do swojego profilu (Save → nadaj nazwę, np. „Fabio”).
+   * Skrypt pojawi się na liście Twoich wskaźników i możesz go włączać także z telefonu (zakładka Indicators → My Scripts).
 
 ---
 
@@ -213,7 +218,15 @@ A: Utrzymaj VWAP bias, podnieś `vol_mult`, wymagaj dotknięcia OB, filtruj sesj
 
 ## 13) Licencja & zastrzeżenia
 
-Ten skrypt i README mają charakter **edukacyjny**. To **nie** jest rekomendacja inwestycyjna. Handel na rynkach finansowych wiąże się z ryzykiem utraty kapitału. Używaj na własną odpowiedzialność, uwzględniając opłaty i prowizje.
-© 2025 – **licencja należy do Wojtasa** – ale serio, do prywatnego użytku, bez gwarancji.
+Ten skrypt i README mają charakter **edukacyjny**. To **nie** jest rekomendacja inwestycyjna. Handel na rynkach finansowych wiąże się z ryzykiem utraty kapitału. Używaj na własną odpowiedzialność, uwzględniając opłaty i poślizgi.
+© 2025 – **licencja należy do Wojtasa** – na beke, ale serio, do prywatnego użytku, bez gwarancji.
 
 ---
+
+## 14) Pomysły na rozwój
+
+* Filtr sesji (`input.session`) i auto‑blokada poza godzinami.
+* Zaawansowana detekcja OB (SMC, FVG, BOS/CHOCH).
+* Własny menedżer take‑profit (poziomy BB/VPVR/ADR).
+* Integracja z realnym order‑flow (feed L2/T&S) – jeśli dostępny.
+* Labeling sygnałów R/R na wykresie i statystyki trade‑by‑trade.

@@ -1,0 +1,249 @@
+// @version=6
+strategy("Fabio",
+     overlay=true,
+     default_qty_type=strategy.percent_of_equity,
+     default_qty_value=1,
+     pyramiding=1,
+     max_labels_count=500)
+
+// === INPUTS ===
+use_bias       = input.bool(true,  "Use VWAP Bias")
+
+// Order Block settings
+ob_strength    = input.float(1.5,   "OB Range Multiplier (ATR)", minval=0.5)
+ob_max_age     = input.int(30,      "Max OB Age (bars)")
+ob_buffer      = input.float(0.5,   "OB Price Buffer (%)", step=0.1)
+
+// Volume / Momentum settings
+vol_period     = input.int(20,      "Volume SMA Period")
+vol_mult       = input.float(2.0,   "Volume Spike Multiplier", step=0.1)
+body_thresh    = input.float(0.6,   "Impulse Body/Range Threshold", step=0.1)
+
+// Stop-loss / trailing
+atr_period     = input.int(14,      "ATR Period")
+sl_buffer      = input.float(1.0,   "SL ATR Multiplier", step=0.1)
+trail_vol_mult = input.float(2.0,   "Trail Volume Spike Multiplier", step=0.1)
+
+// ---- Bollinger Bands (display only) ----
+show_bb        = input.bool(true,   "Show Bollinger Bands")
+bb_length      = input.int(50,      "BB Length (swing)", minval=5)
+bb_mult        = input.float(2.0,   "BB Multiplier", step=0.1, minval=0.5, maxval=5.0)
+
+// ---- Delta bubbles (order-flow proxy) ----
+show_bubbles = input.bool(true,  "Show Delta Bubbles")
+// próg do FILTRA WEJŚĆ (delta musi go przekroczyć)
+delta_min    = input.float(5000.0, "Delta threshold for entries (shares)", step=100.0, minval=0.0)
+// próg do WYŚWIETLANIA bąbli (może być niższy, np. 3000)
+bubble_min   = input.float(3000.0, "Bubble display threshold (shares)",    step=100.0, minval=0.0)
+
+// ---- Volume Profile (light POC/VA) ----
+show_vp        = input.bool(true,  "Show VP (POC/VA)")
+vp_use_filter  = input.bool(false, "Use VP as entry filter (POC)")
+vp_lookback    = input.int(500,    "VP lookback bars", minval=100, maxval=5000)
+vp_bins        = input.int(60,     "VP price bins",    minval=20,  maxval=200)
+
+// === INDICATORS ===
+vwap_val = ta.vwap(hl2)
+bias     = use_bias ? (close > vwap_val ? 1 : close < vwap_val ? -1 : 0) : 0
+plot(use_bias ? vwap_val : na, "VWAP", color=color.orange)
+atr      = ta.atr(atr_period)
+
+// ---- BB calc & plots ----
+bb_basis = ta.sma(close, bb_length)
+bb_dev   = bb_mult * ta.stdev(close, bb_length)
+bb_upper = bb_basis + bb_dev
+bb_lower = bb_basis - bb_dev
+plot(show_bb ? bb_basis : na, "BB Basis", color=color.new(color.blue, 0))
+pBBu = plot(show_bb ? bb_upper : na, "BB Upper", color=color.new(color.blue, 50))
+pBBl = plot(show_bb ? bb_lower : na, "BB Lower", color=color.new(color.blue, 50))
+fill(pBBu, pBBl, color=show_bb ? color.new(color.blue, 90) : na)
+
+// === ORDER BLOCKS ===
+var float last_bull_ob = na
+var int   bull_ob_bar  = na
+var float last_bear_ob = na
+var int   bear_ob_bar  = na
+isBullOB = (high - low) > atr * ob_strength and close > open
+isBearOB = (high - low) > atr * ob_strength and close < open
+if isBullOB
+    last_bull_ob := low
+    bull_ob_bar  := bar_index
+if isBearOB
+    last_bear_ob := high
+    bear_ob_bar  := bar_index
+
+bull_ob_valid = not na(last_bull_ob) and (bar_index - bull_ob_bar) <= ob_max_age
+bear_ob_valid = not na(last_bear_ob) and (bar_index - bear_ob_bar) <= ob_max_age
+ob_buffer_px  = atr * (ob_buffer / 100)
+bull_near     = bull_ob_valid and math.abs(low - last_bull_ob) <= ob_buffer_px
+bear_near     = bear_ob_valid and math.abs(high - last_bear_ob) <= ob_buffer_px
+
+// === VOLUME / IMPULSE ===
+vol_sma      = ta.sma(volume, vol_period)
+vol_spike    = volume > vol_sma * vol_mult
+rng          = math.max(high - low, syminfo.mintick)
+body_ratio   = math.abs(close - open) / rng
+impulse_up   = vol_spike and close > open and body_ratio > body_thresh
+impulse_down = vol_spike and close < open and body_ratio > body_thresh
+
+// === VOLUME PROFILE (POC/VAH/VAL, light) ===
+float vp_minP = ta.lowest(low, math.min(vp_lookback, bar_index + 1))
+float vp_maxP = ta.highest(high, math.min(vp_lookback, bar_index + 1))
+float vp_range = math.max(vp_maxP - vp_minP, syminfo.mintick)
+float vp_bin   = vp_range / vp_bins
+
+// koszyki wolumenu po cenie
+var float[] vpVol = array.new_float(0)
+if array.size(vpVol) != vp_bins
+    vpVol := array.new_float(vp_bins, 0.0)
+else
+    for i = 0 to vp_bins - 1
+        array.set(vpVol, i, 0.0)
+
+// akumulacja z ostatnich N barów (po cenie = close[i])
+int lb_vp = math.min(vp_lookback, bar_index + 1)
+for i = 0 to lb_vp - 1
+    float p = close[i]
+    int idx = int(math.floor((p - vp_minP) / vp_bin))
+    idx := math.max(0, math.min(vp_bins - 1, idx))
+    array.set(vpVol, idx, array.get(vpVol, idx) + volume[i])
+
+// POC
+float totalVol = 0.0
+float maxVol   = 0.0
+int   pocIdx   = 0
+for i = 0 to vp_bins - 1
+    float v = array.get(vpVol, i)
+    totalVol += v
+    if v > maxVol
+        maxVol := v
+        pocIdx := i
+float pocPrice = vp_minP + (pocIdx + 0.5) * vp_bin
+
+// Value Area 70% (rozszerzanie od POC)
+float target = totalVol * 0.70
+float cum    = maxVol
+int left     = pocIdx - 1
+int right    = pocIdx + 1
+int valIdx   = pocIdx
+int vahIdx   = pocIdx
+while cum < target and (left >= 0 or right < vp_bins)
+    float lv = left  >= 0       ? array.get(vpVol, left)  : -1.0
+    float rv = right < vp_bins  ? array.get(vpVol, right) : -1.0
+    if rv >= lv
+        cum += math.max(rv, 0)
+        vahIdx := right
+        right += 1
+    else
+        cum += math.max(lv, 0)
+        valIdx := left
+        left  -= 1
+float vahPrice = vp_minP + (vahIdx + 0.5) * vp_bin
+float valPrice = vp_minP + (valIdx + 0.5) * vp_bin
+
+// Linie POC/VA
+var line pocL = na
+var line vahL = na
+var line valL = na
+if show_vp
+    if na(pocL)
+        pocL := line.new(bar_index - 1, pocPrice, bar_index, pocPrice, xloc=xloc.bar_index, extend=extend.right, color=color.new(color.red, 0), width=2)
+        vahL := line.new(bar_index - 1, vahPrice, bar_index, vahPrice, xloc=xloc.bar_index, extend=extend.right, color=color.new(color.teal, 0), width=1)
+        valL := line.new(bar_index - 1, valPrice, bar_index, valPrice, xloc=xloc.bar_index, extend=extend.right, color=color.new(color.teal, 0), width=1)
+    else
+        line.set_y1(pocL, pocPrice), line.set_y2(pocL, pocPrice)
+        line.set_y1(vahL, vahPrice), line.set_y2(vahL, vahPrice)
+        line.set_y1(valL, valPrice), line.set_y2(valL, valPrice)
+else
+    if not na(pocL)
+        line.delete(pocL), line.delete(vahL), line.delete(valL)
+        pocL := na, vahL := na, valL := na
+
+// Miękki filtr POC (opcjonalny)
+vp_ok_long  = not vp_use_filter or close >= pocPrice
+vp_ok_short = not vp_use_filter or close <= pocPrice
+
+// === DELTA (body priority + tick-rule fallback) ===
+// 1) jeśli korpus ≠ 0 → kolor wg korpusu świecy
+// 2) jeśli doji → użyj tick-rule (zmiany vs close[1])
+// 3) jeśli nadal 0 → użyj poprzedniego znaku
+var float _sign = 0.0
+body_sign = close > open ? 1 : close < open ? -1 : 0
+chg = ta.change(close)
+tick_sign = chg > 0 ? 1 : chg < 0 ? -1 : 0
+_sign := body_sign != 0 ? body_sign : (tick_sign != 0 ? tick_sign : nz(_sign[1], 0))
+delta = _sign * volume
+absDelta = math.abs(delta)
+
+// === BUBBLES: 5 rozmiarów wg przedziałów (3–5k, 5–10k, 10–25k, 25–50k, 50k+) ===
+if show_bubbles and absDelta >= bubble_min
+    bsize = size.tiny
+    if absDelta >= 50000
+        bsize := size.huge
+    else if absDelta >= 25000
+        bsize := size.large
+    else if absDelta >= 10000
+        bsize := size.normal
+    else if absDelta >= 5000
+        bsize := size.small
+    bcolor = delta > 0 ? color.new(color.lime, 70) : color.new(color.red, 70)
+    label.new(bar_index, close, "", style=label.style_circle, size=bsize, color=bcolor, textcolor=bcolor)
+
+// === FOLLOW-UP ===
+follow_up_up   = impulse_up[1]   and close > open
+follow_up_down = impulse_down[1] and close < open
+
+// === ENTRIES (delta + VP jako filtry) ===
+bull_entry = (bias >= 0) and impulse_up   and bull_near and follow_up_up   and (delta >  delta_min) and vp_ok_long
+bear_entry = (bias <= 0) and impulse_down and bear_near and follow_up_down and (delta < -delta_min) and vp_ok_short
+
+// === POSITION MANAGEMENT ===
+var float sl_level = na
+if bull_entry
+    strategy.entry("Long", strategy.long)
+    sl_level := last_bull_ob - atr * sl_buffer
+if bear_entry
+    strategy.entry("Short", strategy.short)
+    sl_level := last_bear_ob + atr * sl_buffer
+if not na(sl_level)
+    strategy.exit("Exit", stop=sl_level)
+if strategy.position_size > 0 and volume > vol_sma * trail_vol_mult
+    new_sl    = close - atr * sl_buffer
+    sl_level := math.max(sl_level, new_sl)
+    strategy.exit("Trail Long", stop=sl_level)
+if strategy.position_size < 0 and volume > vol_sma * trail_vol_mult
+    new_sl    = close + atr * sl_buffer
+    sl_level := math.min(sl_level, new_sl)
+    strategy.exit("Trail Short", stop=sl_level)
+if strategy.position_size == 0
+    sl_level := na
+
+// === PLOTS & SIGNALS ===
+plotshape(isBullOB,     title="Bull OB",          location=location.belowbar, color=color.new(color.green,80), style=shape.circle,      size=size.tiny)
+plotshape(isBearOB,     title="Bear OB",          location=location.abovebar, color=color.new(color.red,80),   style=shape.circle,      size=size.tiny)
+plotshape(impulse_up,   title="Impulse Candle",   location=location.abovebar, color=color.new(color.yellow,0), style=shape.square,      size=size.tiny, text="⚡")
+plotshape(follow_up_up, title="Follow-up Candle", location=location.belowbar, color=color.new(color.blue,0),   style=shape.triangleup, size=size.small, text="✔")
+plotshape(bull_entry,   title="Long Entry",       location=location.belowbar, color=color.green,          style=shape.triangleup,  size=size.large)
+plotshape(bear_entry,   title="Short Entry",      location=location.abovebar, color=color.red,            style=shape.triangledown,size=size.large)
+
+// === LEGEND ===
+var table legend = table.new(position.top_right, 2, 8, border_color=color.gray, frame_color=color.gray)
+if barstate.islast
+    table.cell(legend, 0, 0, "Symbol",              text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 1, 0, "Meaning",             text_color=color.white, bgcolor=color.gray)
+    table.cell(legend, 0, 1, "🟢◯ Bull OB",         text_color=color.green)
+    table.cell(legend, 1, 1, "Order Block support")
+    table.cell(legend, 0, 2, "🔴◯ Bear OB",         text_color=color.red)
+    table.cell(legend, 1, 2, "Order Block resistance")
+    table.cell(legend, 0, 3, "⚡",                   text_color=color.yellow)
+    table.cell(legend, 1, 3, "Impulse volume spike")
+    table.cell(legend, 0, 4, "✔",                   text_color=color.blue)
+    table.cell(legend, 1, 4, "Follow-up confirmation")
+    table.cell(legend, 0, 5, "▲",                   text_color=color.green)
+    table.cell(legend, 1, 5, "Buy / Sell signals")
+    table.cell(legend, 0, 6, "BB",                  text_color=color.blue)
+    table.cell(legend, 1, 6, "Len 50, Mult " + str.tostring(bb_mult))
+    table.cell(legend, 0, 7, "POC/VA",              text_color=color.white)
+    table.cell(legend, 1, 7, "POC=red, VAH/VAL=teal")
+
+// === END ===
