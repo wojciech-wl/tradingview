@@ -20,7 +20,7 @@
 * **Proximity buffer** – wejścia tylko, gdy cena dotyka strefy OB w buforze `ob_buffer` (w % ATR).
 * **Impulse candle** – wolumen `> SMA(vol) * vol_mult` oraz korpus/zakres > `body_thresh` i kierunek świecy zgodny.
 * **Follow‑up candle** – kolejna świeca zgodna z kierunkiem impulsu (potwierdzenie momentum).
-* **Delta bubbles (proxy)** – znak `delta = sign(close change) * volume`. Bąble dla `|delta| ≥ delta_min`, kolor wg znaku, rozmiar ~ siła.
+* **Delta bubbles (proxy)** – **body‑priority + tick‑rule fallback**: znak delty najpierw z koloru korpusu, jeśli doji → z tick‑rule (zmiana close vs close[1]), jeśli nadal 0 → poprzedni znak. Bąble rysowane dla `|delta| ≥ bubble_min` (osobny próg **display**), kolor wg znaku, rozmiar skokowo wg siły.
 * **BB (opcjonalnie)** – kontekst zmienności: `length = 50`, `mult = 2.0` (domyślnie). Nie generuje sygnałów, tylko tło.
 * **Risk management** – SL wg ATR od OB; trailing aktywuje się przy skoku wolumenu (`trail_vol_mult`).
 
@@ -39,23 +39,41 @@
 
 ## 4) Wejścia (parametry)
 
-| Grupa           | Parametr         | Domyślnie | Opis                                                     |
-| --------------- | ---------------- | --------: | -------------------------------------------------------- |
-| Bias            | `use_bias`       |    `true` | Włącza filtr VWAP (rekomendowane).                       |
-| OB              | `ob_strength`    |     `1.5` | Minimalny zakres świecy OB: `range > ATR * ob_strength`. |
-|                 | `ob_max_age`     |      `30` | Maks. „wiek” zapamiętanego OB (w barach).                |
-|                 | `ob_buffer`      | `0.5` (%) | Dopuszczalna odległość ceny od poziomu OB (w % ATR).     |
-| Volume/Momentum | `vol_period`     |      `20` | Okres SMA wolumenu.                                      |
-|                 | `vol_mult`       |     `2.0` | Próg „spike” wolumenu: `vol > SMA * mult`.               |
-|                 | `body_thresh`    |     `0.6` | Minimalny stosunek korpusu do zakresu świecy (0–1).      |
-| SL/Trailing     | `atr_period`     |      `14` | Okres ATR do SL i OB detekcji.                           |
-|                 | `sl_buffer`      |     `1.0` | Mnożnik ATR dla SL od OB (`1.0` = 1×ATR).                |
-|                 | `trail_vol_mult` |     `2.0` | Aktywacja trailing‑SL przy skoku wolumenu.               |
-| Bollinger       | `show_bb`        |    `true` | Pokazuje BB na wykresie (kontekst).                      |
-|                 | `bb_length`      |      `50` | Długość BB (swing).                                      |
-|                 | `bb_mult`        |     `2.0` | Odchylenie standardowe BB (krotność σ).                  |
-| Delta bubbles   | `show_bubbles`   |    `true` | Włącza etykiety bąbli delta.                             |
-|                 | `delta_min`      |    `5000` | Próg absolutnej delty (w akcjach).                       |
+| Grupa           | Parametr         | Domyślnie | Opis                                                              |       |                      |
+| --------------- | ---------------- | --------: | ----------------------------------------------------------------- | ----- | -------------------- |
+| Bias            | `use_bias`       |    `true` | Włącza filtr VWAP (rekomendowane).                                |       |                      |
+| OB              | `ob_strength`    |     `1.5` | Minimalny zakres świecy OB: `range > ATR * ob_strength`.          |       |                      |
+|                 | `ob_max_age`     |      `30` | Maks. „wiek” zapamiętanego OB (w barach).                         |       |                      |
+|                 | `ob_buffer`      | `0.5` (%) | Dopuszczalna odległość ceny od poziomu OB (w % ATR).              |       |                      |
+| Volume/Momentum | `vol_period`     |      `20` | Okres SMA wolumenu.                                               |       |                      |
+|                 | `vol_mult`       |     `2.0` | Próg „spike” wolumenu: `vol > SMA * mult`.                        |       |                      |
+|                 | `body_thresh`    |     `0.6` | Minimalny stosunek korpusu do zakresu świecy (0–1).               |       |                      |
+| SL/Trailing     | `atr_period`     |      `14` | Okres ATR do SL i OB detekcji.                                    |       |                      |
+|                 | `sl_buffer`      |     `1.0` | Mnożnik ATR dla SL od OB (`1.0` = 1×ATR).                         |       |                      |
+|                 | `trail_vol_mult` |     `2.0` | Aktywacja trailing‑SL przy skoku wolumenu.                        |       |                      |
+| Bollinger       | `show_bb`        |    `true` | Pokazuje BB na wykresie (kontekst).                               |       |                      |
+|                 | `bb_length`      |      `50` | Długość BB (swing).                                               |       |                      |
+|                 | `bb_mult`        |     `2.0` | Odchylenie standardowe BB (krotność σ).                           |       |                      |
+| Delta bubbles   | `show_bubbles`   |    `true` | Włącza etykiety bąbli delta.                                      |       |                      |
+|                 | `delta_min`      |    `5000` | **Próg do FILTRA WEJŚĆ** – minimalna                              | delta | wymagana do sygnału. |
+|                 | `bubble_min`     |    `3000` | **Próg do WYŚWIETLANIA bąbli** – może być niższy niż `delta_min`. |       |                      |
+
+---|---|---:|---|
+| Bias | `use_bias` | `true` | Włącza filtr VWAP (rekomendowane). |
+| OB | `ob_strength` | `1.5` | Minimalny zakres świecy OB: `range > ATR * ob_strength`. |
+|  | `ob_max_age` | `30` | Maks. „wiek” zapamiętanego OB (w barach). |
+|  | `ob_buffer` | `0.5` (%) | Dopuszczalna odległość ceny od poziomu OB (w % ATR). |
+| Volume/Momentum | `vol_period` | `20` | Okres SMA wolumenu. |
+|  | `vol_mult` | `2.0` | Próg „spike” wolumenu: `vol > SMA * mult`. |
+|  | `body_thresh` | `0.6` | Minimalny stosunek korpusu do zakresu świecy (0–1). |
+| SL/Trailing | `atr_period` | `14` | Okres ATR do SL i OB detekcji. |
+|  | `sl_buffer` | `1.0` | Mnożnik ATR dla SL od OB (`1.0` = 1×ATR). |
+|  | `trail_vol_mult` | `2.0` | Aktywacja trailing‑SL przy skoku wolumenu. |
+| Bollinger | `show_bb` | `true` | Pokazuje BB na wykresie (kontekst). |
+|  | `bb_length` | `50` | Długość BB (swing). |
+|  | `bb_mult` | `2.0` | Odchylenie standardowe BB (krotność σ). |
+| Delta bubbles | `show_bubbles` | `true` | Włącza etykiety bąbli delta. |
+|  | `delta_min` | `5000` | Próg absolutnej delty (w akcjach). |
 
 ---
 
@@ -67,7 +85,7 @@
 2. **OB**: poziom bull OB świeży (`ob_max_age`) i cena blisko (`ob_buffer` w % ATR).
 3. **Impulse**: świeca z wolumenowym spike’iem + duży korpus w górę.
 4. **Follow‑up**: kolejna świeca rosnąca.
-5. **Delta**: `delta > delta_min` (wolumen pchający w górę).
+5. **Delta**: `delta > delta_min` (wolumen pchający w górę; **`delta_min` dotyczy wejścia`, nie rysowania bąbli**);.
 
 **Short entry** simetrycznie, lecz pod VWAP i z bear OB.
 
@@ -140,16 +158,16 @@ Analogicznie do Long, ale pod VWAP, przy bear OB i czerwonym bąblu.
 ## 10) FAQ / Troubleshooting
 
 **Q: Bąbel zielony na czerwonej świecy?**
-A: Możliwe przy regule tick‑rule (np. spadek ceny, ale większość wolumenu realizuje się na uptickach w obrębie bara). To **nie błąd** wskaźnika, tylko ograniczenie proxy. W razie potrzeby zwiększ `delta_min` lub używaj niższego TF.
+A: Rzadziej niż wcześniej, bo teraz **priorytet ma kolor korpusu**. Jeśli świeca jest **doji**, wchodzi tick‑rule i taki przypadek może się pojawić. To nie błąd, tylko skutek proxy. Jeśli przeszkadza – zwiększ `bubble_min` i/lub `delta_min`.
 
 **Q: Za dużo/mało sygnałów?**
-A: Zmieniaj `ob_strength`, `ob_max_age`, `vol_mult`, `body_thresh`, `delta_min`.
+A: Zmieniaj `ob_strength`, `ob_max_age`, `vol_mult`, `body_thresh`, **`delta_min`** (wejścia) oraz **`bubble_min`** (wizualizacja).
 
 **Q: SL „za ciasny”?**
-A: Podnieś `sl_buffer` (np. do 1.4–1.8) lub zwiększ TF.
+A: Podnieś `sl_buffer` (np. 1.4–1.8) lub zwiększ TF.
 
 **Q: Strategia łapie konsolidacje.**
-A: Włącz/utrzymaj VWAP bias, wymagaj większego `vol_mult`, bądź handluj tylko przy testach OB.
+A: Utrzymaj VWAP bias, podnieś `vol_mult`, wymagaj dotknięcia OB, filtruj sesję.
 
 ---
 
@@ -171,7 +189,9 @@ A: Włącz/utrzymaj VWAP bias, wymagaj większego `vol_mult`, bądź handluj tyl
 * Wejście tylko **near OB** (`abs(price–OB) ≤ ATR*(ob_buffer/100)`).
 * Impuls = `volume > SMA*mult` i `|body|/range > body_thresh` + zgodny kolor.
 * Follow‑up = kolejna świeca w tym samym kierunku.
-* **Delta filter** = `delta > delta_min` (long) lub `< -delta_min` (short).
+* **Delta (nowe):** znak wg sekwencji **(1) korpus ≠ 0 → znak korpusu; (2) doji → tick‑rule; (3) dalej 0 → poprzedni znak**.
+* **Progi rozdzielone:** `delta_min` → **filtr wejść**, `bubble_min` → **display bąbli**.
+* **Bąble 5 rozmiarów:** ~ 3–5k, 5–10k, 10–25k, 25–50k, 50k+ (jak w kodzie).
 * SL od OB ± `ATR*sl_buffer`, trailing przy spike’u wolumenu.
 
 ---
