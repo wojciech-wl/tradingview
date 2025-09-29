@@ -1,5 +1,5 @@
 // @version=6
-strategy("Fabio Scalping Strategy v3 (with Legend + BB50)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, pyramiding=1)
+strategy("Fabio", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, pyramiding=1)
 
 // === INPUTS ===
 use_bias       = input.bool(true,  "Use VWAP Bias")
