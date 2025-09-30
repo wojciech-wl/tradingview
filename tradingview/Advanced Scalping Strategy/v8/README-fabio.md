@@ -1,4 +1,6 @@
-# Fabio - strategia do gry na giełdzie w podejściu krótkoterminowym
+# Fabio - stra**Wersja pliku:** README v1.1
+**Script name:** `Fabio` (TradingView, Pine v6)
+**Plik kodu:** `fabio.pine` (v8 + CVD sync)gia do gry na giełdzie w podejściu krótkoterminowym
 
 ---
 
@@ -25,7 +27,8 @@ Skrypt analizuje rynek pod kątem:
 *   **Głównego trendu (VWAP)**,
 *   **Ważnych stref cenowych z przeszłości (Order Blocks)**,
 *   **Nagłych wzrostów zainteresowania (impulsów wolumenu)**,
-*   **Przewagi kupujących lub sprzedających (delta proxy)**.
+*   **Przewagi kupujących lub sprzedających (delta proxy)**,
+*   **🆕 Trendu przepływu zleceń (CVD - synchronizacja z Order Flow WOJU)**.
 
 Sygnały pojawiają się tylko wtedy, gdy cena znajdzie się w pobliżu tych ważnych stref i dostanie dodatkowe potwierdzenie.
 
@@ -81,6 +84,14 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
         *   **🔵 VAH (Value Area High) - górna turkusowa linia**: Górna granica "strefy komfortu" rynku. Często działa jak **opór (sufit)**.
         *   **🔵 VAL (Value Area Low) - dolna turkusowa linia**: Dolna granica "strefy komfortu". Często działa jak **wsparcie (podłoga)**.
 
+*   **🆕 CVD Trend Arrows (strzałki ↑↓)**
+    *   **Co to jest?** Synchronizacja z Order Flow Delta Tracker WOJU - pokazuje kierunek trendu przepływu zleceń.
+    *   **Po co to?** Dodatkowe **potwierdzenie kierunku** na podstawie akumulacji delty kupujących/sprzedających.
+    *   **Jak używać?** 
+        *   **↑ na górze wykresu**: CVD trend wzrostowy - preferuj pozycje LONG
+        *   **↓ na dole wykresu**: CVD trend spadkowy - preferuj pozycje SHORT
+        *   **Brak strzałek**: neutralny trend CVD - ostrożność z kierunkiem
+
 *   **Risk Management (Zarządzanie Ryzykiem)**
     *   **Co to jest?** Najważniejszy element! To Twój plan, ile możesz stracić na jednej transakcji.
     *   **Po co to?** Żeby nie wyzerować konta.
@@ -125,7 +136,7 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
 ### 🛠️ Wgrywanie strategii Fabio v8 (szczegółowo)
 
 6. **Pobranie kodu strategii**:
-   * Otwórz plik `fabio&bb&bubbles.pine` z folderu **v8** tego repozytorium
+   * Otwórz plik `fabio.pine` z folderu **v8** tego repozytorium
    * **Zaznacz CAŁY kod** (Ctrl+A) i **skopiuj** (Ctrl+C)
    * **Sprawdź**: kod powinien zaczynać się od `// @version=6`
 
@@ -142,7 +153,7 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
 
 9. **Zapisywanie strategii**:
    * Kliknij **"Save"** w Pine Editor
-   * Nadaj nazwę: **"Fabio v8 + VP"** (żeby odróżnić od innych wersji)
+   * Nadaj nazwę: **"Fabio v8 + VP + CVD"** (żeby odróżnić od innych wersji)
    * Teraz strategia jest zapisana w Twoim profilu
 
 ### 📱 Dostęp z telefonu
@@ -160,7 +171,10 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
     * Na wykresie kliknij na nazwę strategii **"Fabio"** (góra wykresu)
     * Wybierz **"Settings"** (ikona koła zębatego)
     * **Zostawiaj domyślne wartości na start** - są dobrze dobrane!
-    * **NOWOŚĆ v8**: możesz włączyć `vp_use_filter` dla dodatkowego filtra POC
+    * **NOWOŚĆ v8**: 
+      * `vp_use_filter` - dodatkowy filtr POC (domyślnie OFF)
+      * `use_cvd_filter` - synchronizacja z CVD trend (domyślnie ON)
+      * `cvd_smooth` - wygładzanie CVD (domyślnie 3, dopasowane do WOJU)
 
 12. **Ustawienia wykresu** (opcjonalnie):
     * Kliknij prawym na wykres → **"Settings"**
@@ -385,7 +399,10 @@ A: To normalny efekt dodatkowego filtra. Możesz wyłączyć `vp_use_filter` i u
 ### Główne nowości:
 * **Volume Profile (POC/VA)**: implementacja lekkiej wersji VP z POC (czerwona linia) i Value Area 70% (turkusowe linie VAH/VAL).
 * **VP jako filtr**: opcjonalny `vp_use_filter` – longi tylko gdy `close >= POC`, shorty gdy `close <= POC`.
-* **Ulepszony legend**: dodano informacje o POC/VA w tabeli na wykresie.
+* **🆕 CVD Synchronizacja**: pełna integracja z Order Flow Delta Tracker WOJU dla lepszej precyzji sygnałów.
+* **🆕 CVD Trend Filter**: dodatkowy filtr wejść bazujący na trendzie CVD (longi przy CVD↑, shorty przy CVD↓).
+* **🆕 CVD Visual Indicators**: strzałki ↑↓ na wykresie pokazujące kierunek trendu przepływu zleceń.
+* **Ulepszony legend**: dodano informacje o POC/VA i CVD trend w tabeli na wykresie.
 * **Optymalizacja**: lepsza organizacja kodu VP z konfigurowalnymi parametrami `vp_lookback` i `vp_bins`.
 
 ### Zachowane z v7:

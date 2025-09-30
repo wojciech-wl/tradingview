@@ -1,0 +1,86 @@
+//@version=6
+indicator("Order Flow Delta Tracker ++ (v6, daily CVD)", overlay=false, max_labels_count=500)
+
+// ===== Inputs =====
+sign_mode     = input.string("CandleColor", "Delta sign mode", options=["CandleColor", "Body+Tick"])
+rolling_len   = input.int(50,  "Rolling CumDelta length", minval=1)
+show_delta    = input.bool(true,   "Show Delta columns")
+show_cvd      = input.bool(true,   "Show CVD (daily reset)")
+cvd_smooth    = input.int(0,    "CVD smoothing (SMA bars)", minval=0)
+show_rolling  = input.bool(true,   "Show Rolling CumDelta")
+show_zero     = input.bool(true,   "Show Zero line")
+show_vwap     = input.bool(true,   "Show VWAP")
+show_price    = input.bool(false,  "Show Price")
+show_norm     = input.bool(false,  "Show Normalized Price (0–100)")
+show_absorb   = input.bool(true,   "Show Absorption signal")
+show_spikes   = input.bool(true,   "Show Delta Spikes")
+div_window    = input.int(10,   "Divergence lookback", minval=2)
+imb_mult      = input.float(2.0, "Imbalance body ratio", step=0.1) // (high-close) > mult*(close-open) for red, etc.
+
+// ===== Delta sign =====
+float delta = na
+if sign_mode == "CandleColor"
+    // identycznie jak w Twoim v5
+    isUp   = close > open
+    isDown = close < open
+    buyVolume  = isUp   ? volume : 0.0
+    sellVolume = isDown ? volume : 0.0
+    delta := buyVolume - sellVolume
+else
+    // Body priority + tick-rule fallback (mniejsza liczba "doji=0")
+    var float _sign = 0.0
+    body_sign = close > open ? 1 : close < open ? -1 : 0
+    chg       = ta.change(close)
+    tick_sign = chg > 0 ? 1 : chg < 0 ? -1 : 0
+    _sign     := body_sign != 0 ? body_sign : (tick_sign != 0 ? tick_sign : nz(_sign[1], 0))
+    delta := _sign * volume
+
+// ===== Rolling CumDelta (identyczna logika jak u Ciebie) =====
+rolling_cum = ta.cum(delta) - nz(ta.cum(delta)[rolling_len])
+
+// ===== Session CVD (daily reset) =====
+new_day = ta.change(time("D")) != 0
+var float cvd = na
+cvd := barstate.isfirst ? delta : (new_day ? delta : nz(cvd[1]) + delta)
+cvd_plot = cvd_smooth > 0 ? ta.sma(cvd, cvd_smooth) : cvd
+
+// ===== Imbalance background (jak w v5 – delikatne tło) =====
+imbalance = (high - close) > imb_mult * math.max(close - open, 0)  // red-leaning
+bgcolor(imbalance ? color.new(color.red, 85) : na)
+
+// ===== Absorption =====
+isAbsorbing = volume > ta.sma(volume, 20) * 1.5 and math.abs(close - open) < (high - low) * 0.25
+plotshape(show_absorb and isAbsorbing, title="Absorption", location=location.abovebar,
+          color=color.orange, style=shape.triangledown, text="Abs")
+
+// ===== Bearish divergence: Price HH vs CumΔ/CVD LH =====
+priceHH = high > ta.highest(high, div_window)[1]
+deltaLH = rolling_cum < ta.highest(rolling_cum, div_window)[1]
+cvdLH   = cvd_plot    < ta.highest(cvd_plot,    div_window)[1]
+plotshape(priceHH and (deltaLH or cvdLH), title="Bearish Δ Divergence",
+          location=location.abovebar, style=shape.labeldown, color=color.red, text="Δ Divergence")
+
+// ===== VWAP / Price / Normalized Price (opcjonalne) =====
+vwap = ta.vwap(close)
+plot(show_vwap  ? vwap  : na, title="VWAP",  color=color.yellow)
+plot(show_price ? close : na, title="Price", color=color.gray, linewidth=1)
+norm_den = math.max(ta.highest(close, 50) - ta.lowest(close, 50), syminfo.mintick)
+normalizedPrice = (close - ta.lowest(close, 50)) / norm_den * 100
+plot(show_norm ? normalizedPrice : na, title="Normalized Price", color=color.gray)
+
+// ===== Barcolor wg delty (jak w v5) =====
+barcolor(show_delta ? (delta > 0 ? color.new(color.green, 30) : color.new(color.red, 30)) : na)
+
+// ===== Delta Spike =====
+deltaSpike = math.abs(delta) > ta.sma(math.abs(delta), 20) * 2
+plotshape(show_spikes and deltaSpike, location=location.abovebar,
+          color=color.fuchsia, style=shape.cross, title="Delta Spike", text="×")
+
+// ===== Plots główne =====
+plot(show_delta ? delta : na, title="Delta",
+     style=plot.style_columns,
+     color=delta >= 0 ? color.new(color.green, 0) : color.new(color.red, 0))
+
+plot(show_rolling ? rolling_cum : na, title="Cumulative Delta (rolling)", color=color.blue, linewidth=2)
+plot(show_cvd ? cvd_plot : na, title="CVD (daily reset)", color=color.purple, linewidth=2)
+plot(show_zero ? 0 : na, title="Zero", color=color.gray)

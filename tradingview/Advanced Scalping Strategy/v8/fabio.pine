@@ -36,6 +36,10 @@ delta_min    = input.float(5000.0, "Delta threshold for entries (shares)", step=
 // próg do WYŚWIETLANIA bąbli (może być niższy, np. 3000)
 bubble_min   = input.float(3000.0, "Bubble display threshold (shares)",    step=100.0, minval=0.0)
 
+// ---- CVD Trend Filter (sync z WOJU) ----
+use_cvd_filter = input.bool(true, "Use CVD trend filter")
+cvd_smooth     = input.int(3, "CVD smoothing (match WOJU)", minval=0, maxval=10)
+
 // ---- Volume Profile (light POC/VA) ----
 show_vp        = input.bool(true,  "Show VP (POC/VA)")
 vp_use_filter  = input.bool(false, "Use VP as entry filter (POC)")
@@ -163,7 +167,7 @@ else
 vp_ok_long  = not vp_use_filter or close >= pocPrice
 vp_ok_short = not vp_use_filter or close <= pocPrice
 
-// === DELTA (body priority + tick-rule fallback) ===
+// === DELTA (body priority + tick-rule fallback) - SYNC Z WOJU ===
 // 1) jeśli korpus ≠ 0 → kolor wg korpusu świecy
 // 2) jeśli doji → użyj tick-rule (zmiany vs close[1])
 // 3) jeśli nadal 0 → użyj poprzedniego znaku
@@ -174,6 +178,16 @@ tick_sign = chg > 0 ? 1 : chg < 0 ? -1 : 0
 _sign := body_sign != 0 ? body_sign : (tick_sign != 0 ? tick_sign : nz(_sign[1], 0))
 delta = _sign * volume
 absDelta = math.abs(delta)
+
+// === CVD (Cumulative Volume Delta) - IDENTYCZNY JAK W WOJU ===
+new_day = ta.change(time("D")) != 0
+var float cvd = na
+cvd := barstate.isfirst ? delta : (new_day ? delta : nz(cvd[1]) + delta)
+cvd_smoothed = cvd_smooth > 0 ? ta.sma(cvd, cvd_smooth) : cvd
+
+// CVD Trend Direction (dla filtrowania wejść)
+cvd_trend_up = cvd_smoothed > cvd_smoothed[1] and cvd_smoothed > 0
+cvd_trend_down = cvd_smoothed < cvd_smoothed[1] and cvd_smoothed < 0
 
 // === BUBBLES: 5 rozmiarów wg przedziałów (3–5k, 5–10k, 10–25k, 25–50k, 50k+) ===
 if show_bubbles and absDelta >= bubble_min
@@ -193,9 +207,13 @@ if show_bubbles and absDelta >= bubble_min
 follow_up_up   = impulse_up[1]   and close > open
 follow_up_down = impulse_down[1] and close < open
 
-// === ENTRIES (delta + VP jako filtry) ===
-bull_entry = (bias >= 0) and impulse_up   and bull_near and follow_up_up   and (delta >  delta_min) and vp_ok_long
-bear_entry = (bias <= 0) and impulse_down and bear_near and follow_up_down and (delta < -delta_min) and vp_ok_short
+// === ENTRIES (delta + VP + CVD jako filtry) ===
+// CVD Filter: Long gdy trend CVD wzrostowy, Short gdy spadkowy
+cvd_filter_long  = not use_cvd_filter or cvd_trend_up
+cvd_filter_short = not use_cvd_filter or cvd_trend_down
+
+bull_entry = (bias >= 0) and impulse_up   and bull_near and follow_up_up   and (delta >  delta_min) and vp_ok_long  and cvd_filter_long
+bear_entry = (bias <= 0) and impulse_down and bear_near and follow_up_down and (delta < -delta_min) and vp_ok_short and cvd_filter_short
 
 // === POSITION MANAGEMENT ===
 var float sl_level = na
