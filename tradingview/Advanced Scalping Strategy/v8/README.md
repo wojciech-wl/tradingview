@@ -132,7 +132,20 @@ Poniżej: indeks plików i dalsza struktura.
 5. Dopiero na końcu: włącz/skaluj Immediate Δ jeśli chcesz dodatkową selekcję.
 
 ## 🗺 Decyzyjny Checkpoint (mentalny skrót)
-VWAP bias?  OB świeży?  ⚡ + ✔?  CVD zgodne?  Brak bearish divergence?  Bąbel ≥ próg?  R:R ≥1.5?  Plan wyjścia?  Jeśli NIE → OMIJASZ.
+Krótka, wykonawcza checklista przed wejściem — zaznacz każdy punkt. JEŚLI JAKIŚ PUNKT = NIE → SKIP.
+
+- Kierunek (VWAP bias):
+  - Long: cena powyżej VWAP lub cena ponizej ale inne wskazania
+- Świeża strefa OB: wykryty Order Block o akceptowalnym wieku (<= `ob_max_age`) i odpowiedniej sile (`ob_strength`).
+- Impuls + Follow‑up: najpierw impuls wolumenowy (⚡), a następnie potwierdzająca świeca (✔) w tym samym kierunku.
+- Delta (agresja): |delta| ≥ `delta_min` (filtr wejścia). Widoczny bąbel ≥ `bubble_min` wzmacnia sygnał.
+- CVD / Rolling CumΔ: CVD trend oraz Rolling CumΔ nie są SPRZECZNE z planowanym kierunkiem (jeśli `use_cvd_filter` = ON).
+- Brak divergencji strukturalnej: brak bearish divergence (dla long) / brak bullish divergence (dla short) na wybranym TF.
+- Volume Profile (opcjonalnie): jeśli `vp_use_filter` = ON, cena znajduje się po „silnej stronie” POC (long ≥ POC, short ≤ POC).
+- Zarządzanie ryzykiem: istnieje wyraźny SL (pod/nad OB), plan TP i oczekiwane R:R ≥ 1.5 (lub inny uprzednio ustalony próg).
+- Kontekst rynkowy: brak ważnych newsów, akceptowalny spread/liquidity, zgodność TF (główny TF potwierdza kierunek).
+
+Jeśli WSZYSTKIE powyższe to TAK → rozważ wejście zgodnie z planem (entry, SL, TP). Jeżeli 1–2 punkty są marginalnie poniżej progu (np. bąbel nieznacznie mniejszy), oznacz jako "marginalny" i rozważ reduced size albo odpuszczenie. W przeciwnym razie SKIP.
 
 ## 📌 Gdzie dalej?
 - Dodanie bullish divergence (na razie tylko bearish) – TODO jeśli potrzebne.
