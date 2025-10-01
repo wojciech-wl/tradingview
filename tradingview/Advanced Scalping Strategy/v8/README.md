@@ -40,7 +40,7 @@ Ten zestaw to DWIE rzeczy pracujące razem:
 | Nazwa | Co to znaczy (prosto) |
 |-------|-----------------------|
 | Order Blocks (OB) | Miejsca, gdzie wcześniej były duże zlecenia — często działają jak wsparcie/opór. |
-| VWAP bias | Średnia ważona wolumenem: jeśli cena jest powyżej → preferuj longy, poniżej → preferuj shorty. |
+| VWAP bias | Średnia ważona wolumenem: jeśli cena jest powyżej → preferuj long-i, poniżej → preferuj shorty. |
 | Volume Profile (POC/VAH/VAL) | Pokazuje na jakich poziomach było najwięcej handlu; POC = najważniejszy poziom. |
 | Impuls wolumenowy (⚡) | Duży wzrost wolumenu na jednej świecy — znak, że pojawiła się siła (może start ruchu). |
 | Follow‑up (✔) | Kolejna świeca idąca w tym samym kierunku po impulsie — potwierdzenie, że impuls nie był przypadkiem. |
