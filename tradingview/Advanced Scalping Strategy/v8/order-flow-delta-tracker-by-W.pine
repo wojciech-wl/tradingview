@@ -112,7 +112,7 @@ plotshape(show_spikes and deltaSpike, location=location.abovebar,
 
 // ===== Plots główne =====
 plot(show_delta ? delta : na, title="Delta",
-     style=plot.style_line, linewidth=1,
+     style=plot.style_columns,
      color=delta >= 0 ? color.new(color.green, 0) : color.new(color.red, 0))
 
 plot(show_rolling ? rolling_cum : na, title="Cumulative Delta (rolling)", color=color.blue, linewidth=1)
