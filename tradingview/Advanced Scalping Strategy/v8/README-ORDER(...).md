@@ -12,7 +12,7 @@
 - **2 metody obliczania delty** - CandleColor + Body+Tick (heurystyka agresji)
 - **CVD z resetem dziennym** (fiolet) - Świeży start każdej sesji handlowej  
 - **Rolling CumDelta (lokalna)** (niebieska) - Bilans ostatniego okna (domyślnie 35 barów)
-- **Immediate Δ (impuls)** (żółta) - Bieżąca agresja (EMA z delty * skala + opcjonalny auto‑scale)
+- **Immediate Δ (impuls)** (żółta) - Momentum Accumulator ze Streak Boost (rośnie przy kolejnych świecach tego samego kierunku)
 - **Pełna personalizacja** - Parametry długości, skali, smoothing
 - **Inteligentne wygładzanie** - SMA dla CVD + EMA dla impulsu
 - **Zaawansowane divergencje (bearish)** - Price HH vs (Rolling lub CVD) LH
@@ -37,10 +37,11 @@
 - Interpretacja: jeśli rośnie mimo czerwonych świec, bieżąca presja sprzedaży jest słabsza niż ta, która właśnie „wypadła” z okna.
 
 ### 4. **Immediate Δ (Impuls)** - Żółta linia
-- Definicja: `EMA(delta, immediate_len)` * `scale` (domyślnie len=2, scale=5)
-- Cel: wyróżnić świeże krótkoterminowe uderzenia agresji, które mogą poprzedzać zmianę kierunku lub kontynuację.
-- Opcja: Auto‑scale – normalizuje przez średnią z |EMA(delta)| z wybranego lookbacku, utrzymując porównywalną amplitudę w różnych sesjach.
-- Użycie: gwałtowny skok żółtej przy płaskiej niebieskiej = nowy impuls; żółta wygasa przy nadal wysokiej niebieskiej = wyczerpywanie.
+- **Definicja**: Momentum Accumulator z Streak Boost - akumuluje podczas kolejnych świec tego samego kierunku
+- **Logika**: Przy streaku zielonych/czerwonych kolumn: rośnie eksponencjalnie (+30% boost za każdą kolejną świecę)
+- **Reset**: Przy zmianie kierunku zachowuje 70% momentum, następnie szybko decay (0.85)
+- **Cel**: Dynamicznie pokazać siłę trendu - im więcej kolejnych świec w kierunku, tym wyższa linia
+- **Użycie**: Wysoka żółta = silne momentum, szybki spadek = łamanie się trendu, płaska = brak kierunku
 
 ### 5. **Sygnały Specjalne**
 - 🔻 **Absorption (Abs)**: Pomarańczowy trójkąt - duży volume przy małym ruchu ceny
@@ -55,8 +56,8 @@
 ```
 Delta sign mode: "CandleColor" (dla początkujących)
 Rolling CumDelta length: 35   # lokalny bilans (zmień 20–60 w zależności od TF)
-Immediate Δ EMA length: 2     # impulsy
-Immediate Δ scale factor: 5   # wizualne powiększenie; 1 = surowa wartość EMA
+Immediate Δ streak boost: 0.3  # 30% boost za kolejną świecę w tym samym kierunku
+Immediate Δ scale factor: 5   # wizualne powiększenie (teraz automatycznie ~0.19x z base_scale)
 Immediate Δ auto scale: OFF   # włącz gdy instrumenty o różnych wolumenach
 CVD smoothing: 0–3 (opcjonalnie)
 Divergence lookback: 10

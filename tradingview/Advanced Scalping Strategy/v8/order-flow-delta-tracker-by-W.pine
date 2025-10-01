@@ -44,12 +44,33 @@ else
 // ===== Rolling CumDelta (identyczna logika jak u Ciebie) =====
 rolling_cum = ta.cum(delta) - nz(ta.cum(delta)[rolling_len]) // Local cumulative delta (window)
 
-// ===== Immediate Aggression (EMA-based) =====
-// Fast momentum proxy: emphasizes very recent delta bursts; purely visual.
-immediate_base = ta.ema(delta, immediate_len)
-immediate_norm_den = immediate_auto_scale ? math.max(ta.sma(math.abs(immediate_base), immediate_auto_len), syminfo.mintick) : 1.0
-immediate_effective_scale = immediate_auto_scale ? immediate_scale / immediate_norm_den : immediate_scale
-immediate_plot = immediate_base * immediate_effective_scale
+// ===== Immediate Aggression (Momentum Accumulator with Streak Boost) =====
+// Dynamic momentum: accumulates during streaks, decays during reversals - purely visual.
+
+// Count consecutive positive/negative deltas (streak detection)
+var int pos_streak = 0
+var int neg_streak = 0
+pos_streak := delta > 0 ? pos_streak + 1 : 0
+neg_streak := delta < 0 ? neg_streak + 1 : 0
+
+// Momentum accumulator - builds during streaks, decays faster than EMA during reversals
+var float momentum_acc = 0.0
+streak_boost = math.max(pos_streak, neg_streak) * 0.3  // 30% boost per consecutive bar
+avg_delta = ta.sma(math.abs(delta), 20)  // Recent average delta for scaling
+
+// During streak: accumulate aggressively, During reversal: decay fast
+if (delta > 0 and delta[1] <= 0) or (delta < 0 and delta[1] >= 0)
+    // Direction change - reset but keep some momentum
+    momentum_acc := delta * 0.7
+else
+    // Same direction - accumulate with streak boost
+    momentum_acc := momentum_acc * 0.85 + delta * (1.0 + streak_boost)
+
+// Scale to be visible - reduced from 0.56x to 0.19x (0.56/3)
+base_scale = 0.19
+immediate_norm_den = immediate_auto_scale ? math.max(ta.sma(math.abs(momentum_acc), immediate_auto_len), syminfo.mintick) : 1.0
+immediate_effective_scale = immediate_auto_scale ? (immediate_scale * base_scale) / immediate_norm_den : (immediate_scale * base_scale)
+immediate_plot = momentum_acc * immediate_effective_scale
 
 // ===== Session CVD (daily reset) =====
 new_day = ta.change(time("D")) != 0
