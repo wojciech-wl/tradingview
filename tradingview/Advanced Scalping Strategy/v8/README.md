@@ -142,7 +142,7 @@ Krótka, wykonawcza checklista przed wejściem — zaznacz każdy punkt. JEŚLI 
 - CVD / Rolling CumΔ: CVD trend oraz Rolling CumΔ nie są SPRZECZNE z planowanym kierunkiem (jeśli `use_cvd_filter` = ON).
 - Brak divergencji strukturalnej: brak bearish divergence (dla long) / brak bullish divergence (dla short) na wybranym TF.
 - Volume Profile (opcjonalnie): jeśli `vp_use_filter` = ON, cena znajduje się po „silnej stronie” POC (long ≥ POC, short ≤ POC).
-- Zarządzanie ryzykiem: istnieje wyraźny SL (pod/nad OB), plan TP i oczekiwane R:R ≥ 1.5 (lub inny uprzednio ustalony próg).
+- Zarządzanie ryzykiem: istnieje wyraźny SL (pod/nad OB), plan TP i oczekiwane R:R (Risk Reward) ≥ 1.5 (lub inny uprzednio ustalony próg).
 - Kontekst rynkowy: brak ważnych newsów, akceptowalny spread/liquidity, zgodność TF (główny TF potwierdza kierunek).
 
 Jeśli WSZYSTKIE powyższe to TAK → rozważ wejście zgodnie z planem (entry, SL, TP). Jeżeli 1–2 punkty są marginalnie poniżej progu (np. bąbel nieznacznie mniejszy), oznacz jako "marginalny" i rozważ reduced size albo odpuszczenie. W przeciwnym razie SKIP.
