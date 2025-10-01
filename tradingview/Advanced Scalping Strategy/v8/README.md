@@ -9,10 +9,10 @@ Ten zestaw to DWIE rzeczy pracujące razem:
 - odsiać przypadkowe wybicia bez potwierdzenia,
 - nie wchodzić przeciw świeżo dominującemu przepływowi,
 - szybciej zauważyć wyczerpanie ruchu (bearish divergence / absorpcja),
-- mieć powtarzalną checklistę zanim klikniesz przycisk.
+- mieć powtarzalną checklistę zanim klikniesz kupuj.
 
 ## 🎯 Dla kogo?
-- Dzień / intra-day trader (indeksy, futures, płynne krypto).
+- Dzień / intra-day trader (giełda, indeksy, futures, płynne krypto).
 - Osoba, która zna podstawy świec i wsparcia/oporu, ale gubi się w chaosie „tysiąca sygnałów”.
 - Kto chce JEDEN proces, zamiast mieszać 5 losowych wskaźników.
 
