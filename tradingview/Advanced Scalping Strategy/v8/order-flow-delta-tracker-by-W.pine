@@ -112,10 +112,10 @@ plotshape(show_spikes and deltaSpike, location=location.abovebar,
 
 // ===== Plots główne =====
 plot(show_delta ? delta : na, title="Delta",
-     style=plot.style_columns,
+     style=plot.style_line, linewidth=1,
      color=delta >= 0 ? color.new(color.green, 0) : color.new(color.red, 0))
 
-plot(show_rolling ? rolling_cum : na, title="Cumulative Delta (rolling)", color=color.blue, linewidth=2)
-plot(show_immediate ? immediate_plot : na, title="Immediate Δ (scaled)", color=color.yellow, linewidth=2, style=plot.style_line)
-plot(show_cvd ? cvd_plot : na, title="CVD (daily reset)", color=color.purple, linewidth=2)
+plot(show_rolling ? rolling_cum : na, title="Cumulative Delta (rolling)", color=color.blue, linewidth=1)
+plot(show_immediate ? immediate_plot : na, title="Immediate Δ (scaled)", color=color.yellow, linewidth=1, style=plot.style_line)
+plot(show_cvd ? cvd_plot : na, title="CVD (daily reset)", color=color.purple, linewidth=1)
 plot(show_zero ? 0 : na, title="Zero", color=color.gray)
