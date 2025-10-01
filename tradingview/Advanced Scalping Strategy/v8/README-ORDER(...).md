@@ -1,4 +1,4 @@
-# Order Flow Delta Tracker WOJU++ 📊
+# Order Flow Delta Tracker WOJU++ 📊 (aktualizacja v8 + "v9 preview" zmian)
 
 ## 🎯 Co to jest?
 
@@ -9,11 +9,13 @@
 ## 🏆 Kluczowe Funkcje WOJU++
 
 - **Pine Version v6** - Najnowsza technologia TradingView
-- **2 metody obliczania delty** - CandleColor + Body+Tick dla większej precyzji
-- **CVD z resetem dziennym** - Świeży start każdej sesji handlowej  
-- **Pełna personalizacja** - Wszystkie parametry dostosowywalne
-- **Inteligentne wygładzanie** - SMA smoothing dla lepszej czytelności
-- **Zaawansowane divergencje** - Precyzyjne wykrywanie punktów zwrotnych
+- **2 metody obliczania delty** - CandleColor + Body+Tick (heurystyka agresji)
+- **CVD z resetem dziennym** (fiolet) - Świeży start każdej sesji handlowej  
+- **Rolling CumDelta (lokalna)** (niebieska) - Bilans ostatniego okna (domyślnie 35 barów)
+- **Immediate Δ (impuls)** (żółta) - Bieżąca agresja (EMA z delty * skala + opcjonalny auto‑scale)
+- **Pełna personalizacja** - Parametry długości, skali, smoothing
+- **Inteligentne wygładzanie** - SMA dla CVD + EMA dla impulsu
+- **Zaawansowane divergencje (bearish)** - Price HH vs (Rolling lub CVD) LH
 
 ---
 
@@ -29,11 +31,18 @@
 - **Trendy spadkowe**: Więcej sprzedających w długim okresie
 - **Reset dzienny**: Nowy start każdego dnia sesyjnego
 
-### 3. **Rolling CumDelta** - Niebieska linia
-- Skumulowana delta z określonej liczby ostatnich barów
-- Pokazuje krótkoterminowy trend flow
+### 3. **Rolling CumDelta (Local CumΔ)** - Niebieska linia
+- Skumulowana delta z określonego okna: `rolling = cum(delta) - cum(delta)[length]`
+- Domyślne okno: **35** (wcześniej 50). Krótsze = szybsza reakcja, więcej szumu.
+- Interpretacja: jeśli rośnie mimo czerwonych świec, bieżąca presja sprzedaży jest słabsza niż ta, która właśnie „wypadła” z okna.
 
-### 4. **Sygnały Specjalne**
+### 4. **Immediate Δ (Impuls)** - Żółta linia
+- Definicja: `EMA(delta, immediate_len)` * `scale` (domyślnie len=2, scale=5)
+- Cel: wyróżnić świeże krótkoterminowe uderzenia agresji, które mogą poprzedzać zmianę kierunku lub kontynuację.
+- Opcja: Auto‑scale – normalizuje przez średnią z |EMA(delta)| z wybranego lookbacku, utrzymując porównywalną amplitudę w różnych sesjach.
+- Użycie: gwałtowny skok żółtej przy płaskiej niebieskiej = nowy impuls; żółta wygasa przy nadal wysokiej niebieskiej = wyczerpywanie.
+
+### 5. **Sygnały Specjalne**
 - 🔻 **Absorption (Abs)**: Pomarańczowy trójkąt - duży volume przy małym ruchu ceny
 - ❌ **Delta Spike**: Fioletowy krzyżyk - nietypowo duża delta
 - 🔴 **Δ Divergence**: Bearish divergence między ceną a deltą
@@ -42,29 +51,35 @@
 
 ## ⚙️ Konfiguracja Wskaźnika
 
-### **Podstawowe Ustawienia:**
+### **Podstawowe Ustawienia (aktualne):**
 ```
 Delta sign mode: "CandleColor" (dla początkujących)
-Rolling CumDelta length: 50
-CVD smoothing: 0-5 (opcjonalnie)
+Rolling CumDelta length: 35   # lokalny bilans (zmień 20–60 w zależności od TF)
+Immediate Δ EMA length: 2     # impulsy
+Immediate Δ scale factor: 5   # wizualne powiększenie; 1 = surowa wartość EMA
+Immediate Δ auto scale: OFF   # włącz gdy instrumenty o różnych wolumenach
+CVD smoothing: 0–3 (opcjonalnie)
 Divergence lookback: 10
 ```
 
 ### **Zalecane Ustawienia dla Różnych Stylów:**
 
 #### 🚀 **Scalping (M1-M5)**
-- Rolling length: `20-30`
-- CVD smoothing: `3-5`
+- Rolling length: `25-40`
+- Immediate scale: `3-6`
+- CVD smoothing: `2-4`
 - Divergence window: `5-8`
 
 #### 📈 **Day Trading (M15-H1)**  
-- Rolling length: `50-100`
+- Rolling length: `35-80`
+- Immediate scale: `4-8`
 - CVD smoothing: `0-3`
 - Divergence window: `10-15`
 
 #### 📊 **Swing Trading (H4-D1)**
 - Rolling length: `100-200`
-- CVD smoothing: `5-10`
+- Immediate len: `2-3`, scale mniejszy (1-3) aby uniknąć dominacji
+- CVD smoothing: `5-8`
 - Divergence window: `15-20`
 
 ---
@@ -76,7 +91,7 @@ Divergence lookback: 10
 **Sygnał BUY:**
 1. CVD (fioletowa linia) w trendzie wzrostowym ↗️
 2. Pojawia się seria zielonych słupków delty 🟢
-3. Rolling CumDelta (niebieska) przekracza zero lub rośnie
+3. Rolling CumDelta (niebieska) > 0 i rośnie; Immediate Δ (żółta) potwierdza świeży impuls (opcjonalnie)
 
 **Wejście:** Na kolejnej zielonej świecy po sygnale
 **Stop Loss:** Pod ostatnim lokalnym minimum
@@ -89,7 +104,7 @@ Divergence lookback: 10
 **Sygnał SELL:**
 1. Cena robi nowy szczyt (Higher High) 📈
 2. Pojawia się czerwony znacznik "Δ Divergence" ⚠️
-3. CVD lub Rolling Delta nie potwierdza nowego szczytu
+3. CVD lub Rolling Delta nie potwierdza nowego szczytu; brak świeżego żółtego impulsu (żółta płaska / opada)
 
 **Wejście:** Na następnej czerwonej świecy po divergence
 **Stop Loss:** Nad nowym szczytem ceny
@@ -149,13 +164,13 @@ Divergence lookback: 10
 ## 🔧 Częste Problemy i Rozwiązania
 
 **Problem:** "Za dużo fałszywych sygnałów"
-**Rozwiązanie:** Zwiększ CVD smoothing do 3-5, używaj wyższego timeframe
+**Rozwiązanie:** Zwiększ CVD smoothing (2-4), wydłuż rolling_len, włącz auto scale dla żółtej, filtruj tylko gdy Immediate Δ i rolling mają ten sam kierunek.
 
 **Problem:** "Divergence nie działa"
 **Rozwiązanie:** Sprawdź czy jesteś przy ważnym S/R, zwiększ divergence window
 
 **Problem:** "Nie widzę wyraźnych trendów CVD"
-**Rozwiązanie:** Przełącz na "Body+Tick" mode, może być bardziej precyzyjny
+**Rozwiązanie:** Przełącz na "Body+Tick" mode; jeśli nadal płasko – instrument o niskiej zmienności, skróć rolling_len lub obniż immediate_scale.
 
 ---
 
@@ -197,5 +212,12 @@ Divergence lookback: 10
 *Pamiętaj: Ten wskaźnik to narzędzie, nie magiczna różdżka. Sukces zależy od dyscypliny, zarządzania ryzykiem i praktyki!* 🎯
 
 **Autor:** WOJU++
-**Wersja:** 1.0
-**Data:** 2024
+**Wersja:** 1.1 (Rolling 35 + Immediate Δ)
+**Data:** 2025
+
+---
+### 🔄 Log zmian (v1.1)
+- Rolling CumDelta domyślnie 50 → 35.
+- Dodano linię Immediate Δ (EMA z delty) + skala i auto‑scale.
+- Zaktualizowano rekomendacje parametrów i setupy.
+- Doprecyzowano interpretację wzrostu rolling przy czerwonych słupkach.

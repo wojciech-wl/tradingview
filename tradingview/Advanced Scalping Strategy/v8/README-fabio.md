@@ -1,6 +1,6 @@
-# Fabio - stra**Wersja pliku:** README v1.1
+# Fabio – Strategia Fabio (README v1.1)
 **Script name:** `Fabio` (TradingView, Pine v6)
-**Plik kodu:** `fabio.pine` (v8 + CVD sync)gia do gry na giełdzie w podejściu krótkoterminowym
+**Plik kodu:** `fabio.pine` (v8 – CVD Sync + Volume Profile + OB + Impulse)
 
 ---
 
@@ -14,8 +14,7 @@
 
 ---
 
-**Wersja pliku:** README v1.0
-**Script name:** `Fabio` (TradingView, Pine v8)
+> Wersja poprzednia: README v1.0 – niniejszy dokument zaktualizowany do v1.1 (nowe sekcje i doprecyzowania)
 
 ---
 
@@ -28,7 +27,7 @@ Skrypt analizuje rynek pod kątem:
 *   **Ważnych stref cenowych z przeszłości (Order Blocks)**,
 *   **Nagłych wzrostów zainteresowania (impulsów wolumenu)**,
 *   **Przewagi kupujących lub sprzedających (delta proxy)**,
-*   **🆕 Trendu przepływu zleceń (CVD - synchronizacja z Order Flow WOJU)**.
+*   **Trendu przepływu zleceń (CVD – synchronizacja z Order Flow WOJU)**.
 
 Sygnały pojawiają się tylko wtedy, gdy cena znajdzie się w pobliżu tych ważnych stref i dostanie dodatkowe potwierdzenie.
 
@@ -44,7 +43,7 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
 *   **Wykres ceny** to droga, którą widzisz przed sobą.
 *   **Wskaźniki** to Twoja deska rozdzielcza i GPS. Mówią Ci, jaka jest pogoda (trend), czy silnik ma moc (wolumen) i gdzie są potencjalne korki lub stacje benzynowe (strefy wsparcia/oporu).
 
-### Komponenty strategii "Fabio" - Twoja deska rozdzielcza:
+### Komponenty strategii "Fabio" – Twoja deska rozdzielcza:
 
 *   **VWAP (pomarańczowa linia)**
     *   **Co to jest?** Średnia cena, po której handlowano danego dnia, uwzględniająca wolumen.
@@ -96,6 +95,16 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
     *   **Co to jest?** Najważniejszy element! To Twój plan, ile możesz stracić na jednej transakcji.
     *   **Po co to?** Żeby nie wyzerować konta.
     *   **Jak używać?** Strategia **sugeruje** poziom **Stop Loss (SL)** - zlecenia, które zamyka transakcję z małą stratą. Musisz je ustawić **RĘCZNIE** u swojego brokera.
+
+---
+
+## NOWE W v8 (skrót zmian vs v7)
+1. **CVD Sync + Filter** – wejścia tylko zgodne z kierunkiem smoothed CVD (opcjonalne).
+2. **Volume Profile (Light)** – POC (czerwona), VAH / VAL (turkusowe) + opcjonalny filtr `vp_use_filter`.
+3. **Oddzielone progi delty** – `delta_min` (filtr wejścia) ≠ `bubble_min` (wizualizacja).
+4. **Bąble 5 rozmiarów** – segmentacja agresji (3–5k / 5–10k / 10–25k / 25–50k / 50k+).
+5. **Trailing SL po spike wolumenu** – dynamiczna ochrona zysku.
+6. **Legenda na wykresie** – szybkie przypomnienie symboli.
 
 ---
 
@@ -248,6 +257,45 @@ Wyobraź sobie, że jedziesz samochodem w nieznanym terenie.
 | Volume Profile  | `show_vp`        |    `true` | Pokazuje Volume Profile (POC/VA) na wykresie.                     |
 |                 | `vp_use_filter`  |   `false` | **NOWOŚĆ!** Używa POC jako filtr wejść (long≥POC, short≤POC).     |
 |                 | `vp_lookback`    |     `500` | Ilość barów do analizy VP (100-5000).                             |
+
+### Szybka tabela ról kluczowych parametrów
+| Parametr | Rola | Podbij aby | Obniż aby |
+|----------|------|-----------|-----------|
+| `ob_strength` | Selekcja jakości OB | Mniej, ale mocniejsze strefy | Więcej potencjalnych OB |
+| `delta_min` | Minimalna agresja dla sygnału | Filtr szumu | Łapać więcej wejść |
+| `bubble_min` | Wizualizacja bąbli | Tylko duże zlewy/agresja | Widzieć więcej mikro impulsów |
+| `vol_mult` | Próg impulsu ⚡ | Mniej fałszywek | Więcej okazji |
+| `body_thresh` | Jakość impulsu (korpus) | Eliminacja cienkich świec | Większa czułość |
+| `vp_use_filter` | Trade tylko „po silnej stronie” | Zwiększyć selektywność | Więcej sygnałów |
+| `trail_vol_mult` | Trigger trailing SL | Rzadziej przesuwa SL | Szybciej zabezpiecza |
+
+---
+
+## 5a) Formuła warunków wejścia (logika)
+
+LONG (`bull_entry`) następuje gdy PRAWDA jest:
+```
+(bias >= 0)
+AND impulse_up
+AND follow_up_up
+AND bull_near
+AND delta > delta_min
+AND vp_ok_long
+AND cvd_filter_long
+```
+SHORT (`bear_entry`) analogicznie:
+```
+(bias <= 0)
+AND impulse_down
+AND follow_up_down
+AND bear_near
+AND delta < -delta_min
+AND vp_ok_short
+AND cvd_filter_short
+```
+Wyłączenie `use_cvd_filter` lub `vp_use_filter` usuwa te warunki z zestawu.
+
+---
 |                 | `vp_bins`        |      `60` | Ilość przedziałów cenowych VP (20-200).                           |
 
 ---
@@ -317,6 +365,7 @@ Analogicznie do Long, ale pod VWAP, przy bear OB, czerwonym bąblu i POC jako re
 * **Nie gonić świecy impulsowej** – lepszy jest wejściowy pullback lub świeca follow‑up.
 * **Kontekst BB + VP**: wybicia górnego pasma BB powyżej VAH + zielone bąble ≈ silniejsza kontynuacja.
 * **POC confluence**: gdy POC zbieżne z BB basis lub OB level = silniejsze S/R.
+* **CVD Filter**: Jeśli CVD trend przeciwny – pomiń marginalny sygnał, czekając na lepszą konfluencję.
 * **Sesja/okno czasu**: ustandaryzuj porę handlu (np. pierwsza godzina sesji US).
 * **Zarządzanie kapitałem**: 0.5–2% ryzyka na trade; pyramiding = `1` (domyślnie).
 
@@ -335,6 +384,17 @@ Analogicznie do Long, ale pod VWAP, przy bear OB, czerwonym bąblu i POC jako re
 * **`vp_lookback`**: 200-500 dla intraday, 500-2000 dla swing. Więcej barów = stabilniejszy POC, ale wolniejsza aktualizacja.
 * **`vp_bins`**: 40-80 dla większości timeframów. Więcej binów = większa precyzja, ale może być noise.
 * **`vp_use_filter`**: `false` dla kontekstu, `true` dla dodatkowego filtra (mniej sygnałów, ale potencjalnie lepszych).
+
+### Rozmiary bąbli delty
+| Zakres bezwzględnej delty | Rozmiar | Znaczenie |
+|--------------------------|---------|-----------|
+| 3k – <5k                 | tiny/small | Lekki impuls |
+| 5k – <10k                | small      | Standardowa agresja |
+| 10k – <25k               | normal     | Silniejszy blok zleceń |
+| 25k – <50k               | large      | Duża aktywność instytucjonalna |
+| ≥50k                     | huge       | Wyraźny duży print / klaster |
+
+Interpretuj rosnące sekwencje większych bąbli w strefie OB jako wzmacnianie kontekstu.
 
 ---
 
@@ -355,6 +415,7 @@ Analogicznie do Long, ale pod VWAP, przy bear OB, czerwonym bąblu i POC jako re
 * **Detekcja OB** jest uproszczona (range > ATR*k), nie klasyczna SMC‑struktura.
 * **BB** to kontekst, nie sygnał. Nie wszystkie wybicia są równe.
 * **Volume Profile** jest uproszczony (bez Time & Sales), bazuje tylko na close price każdego bara.
+* **CVD Filter** – jeśli WOJU używa innego smoothingu niż Fabio (`cvd_smooth`), filtr może opóźniać/odrzucać dobre sygnały.
 * **Rynek o niskiej płynności**: rozważ większe progi delty i wolumenu, by ograniczyć fałszywe sygnały.
 
 ---
@@ -373,6 +434,12 @@ A: Podnieś `sl_buffer` (np. 1.4–1.8) lub zwiększ TF.
 **Q: Strategia łapie konsolidacje.**
 A: Utrzymaj VWAP bias, podnieś `vol_mult`, wymagaj dotknięcia OB, filtruj sesję, rozważ włączenie `vp_use_filter`.
 
+**Q: Czemu brak sygnału mimo impulsu?**
+A: Sprawdź: (1) czy jesteś near OB, (2) delta przekroczyła `delta_min`, (3) follow‑up wystąpił na kolejnej świecy, (4) filtr CVD i POC nie blokują.
+
+**Q: Trailing SL nie przesuwa się?**
+A: Volume musiał przekroczyć `vol_sma * trail_vol_mult` przy OTWARTEJ pozycji.
+
 **Q: Volume Profile nie pokazuje się lub jest dziwny?**
 A: Sprawdź `vp_lookback` (może za mało danych) i `vp_bins`. Dla krótkich sesji zmniejsz lookback, dla długoterminowych zwiększ.
 
@@ -387,6 +454,7 @@ A: To normalny efekt dodatkowego filtra. Możesz wyłączyć `vp_use_filter` i u
 * [ ] Jest świeży **OB** blisko? (bull_near / bear_near)
 * [ ] **⚡ + ✔** w Twoim kierunku?
 * [ ] **Delta** i **CumDelta** nie zaprzeczają?
+* [ ] CVD filter zgodny? (jeśli włączony)
 * [ ] **POC/VA** wspiera lub nie przeszkadza kierunkowi?
 * [ ] **SL** i **TP** policzone (≥1R)?
 * [ ] Spread, zmienność i newsy OK?
@@ -403,6 +471,7 @@ A: To normalny efekt dodatkowego filtra. Możesz wyłączyć `vp_use_filter` i u
 * **🆕 CVD Trend Filter**: dodatkowy filtr wejść bazujący na trendzie CVD (longi przy CVD↑, shorty przy CVD↓).
 * **🆕 CVD Visual Indicators**: strzałki ↑↓ na wykresie pokazujące kierunek trendu przepływu zleceń.
 * **Ulepszony legend**: dodano informacje o POC/VA i CVD trend w tabeli na wykresie.
+* **Trailing SL logic**: aktywacja przy `volume > vol_sma * trail_vol_mult`.
 * **Optymalizacja**: lepsza organizacja kodu VP z konfigurowalnymi parametrami `vp_lookback` i `vp_bins`.
 
 ### Zachowane z v7:

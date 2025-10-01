@@ -1,13 +1,19 @@
 //@version=6
-indicator("Order Flow Delta Tracker ++ (v6, daily CVD)", overlay=false, max_labels_count=500)
+indicator("Order Flow Delta Tracker ++ (v6, daily CVD, v9 preview)", overlay=false, max_labels_count=500)
 
 // ===== Inputs =====
 sign_mode     = input.string("CandleColor", "Delta sign mode", options=["CandleColor", "Body+Tick"])
-rolling_len   = input.int(50,  "Rolling CumDelta length", minval=1)
+rolling_len   = input.int(35,  "Rolling CumDelta length", minval=2) // v9: reduced from 50 -> 35 for faster local response
 show_delta    = input.bool(true,   "Show Delta columns")
 show_cvd      = input.bool(true,   "Show CVD (daily reset)")
 cvd_smooth    = input.int(0,    "CVD smoothing (SMA bars)", minval=0)
 show_rolling  = input.bool(true,   "Show Rolling CumDelta")
+// v9 addition: Immediate (impulse) aggression line (EMA of delta * scale) – purely visual, NOT used in CVD/divergence
+show_immediate      = input.bool(true,  "Show Immediate Δ (EMA)")
+immediate_len       = input.int(2,      "Immediate Δ EMA length", minval=1, maxval=10)
+immediate_scale     = input.float(5.0,  "Immediate Δ scale factor", step=0.5, minval=0.1, maxval=100) // v9: reduced (was 10→50 test, now 5)
+immediate_auto_scale= input.bool(false, "Immediate Δ auto scale (normalize)")
+immediate_auto_len  = input.int(50,     "Immediate Δ auto scale lookback", minval=10, maxval=500)
 show_zero     = input.bool(true,   "Show Zero line")
 show_vwap     = input.bool(true,   "Show VWAP")
 show_price    = input.bool(false,  "Show Price")
@@ -36,7 +42,14 @@ else
     delta := _sign * volume
 
 // ===== Rolling CumDelta (identyczna logika jak u Ciebie) =====
-rolling_cum = ta.cum(delta) - nz(ta.cum(delta)[rolling_len])
+rolling_cum = ta.cum(delta) - nz(ta.cum(delta)[rolling_len]) // Local cumulative delta (window)
+
+// ===== Immediate Aggression (EMA-based) =====
+// Fast momentum proxy: emphasizes very recent delta bursts; purely visual.
+immediate_base = ta.ema(delta, immediate_len)
+immediate_norm_den = immediate_auto_scale ? math.max(ta.sma(math.abs(immediate_base), immediate_auto_len), syminfo.mintick) : 1.0
+immediate_effective_scale = immediate_auto_scale ? immediate_scale / immediate_norm_den : immediate_scale
+immediate_plot = immediate_base * immediate_effective_scale
 
 // ===== Session CVD (daily reset) =====
 new_day = ta.change(time("D")) != 0
@@ -82,5 +95,6 @@ plot(show_delta ? delta : na, title="Delta",
      color=delta >= 0 ? color.new(color.green, 0) : color.new(color.red, 0))
 
 plot(show_rolling ? rolling_cum : na, title="Cumulative Delta (rolling)", color=color.blue, linewidth=2)
+plot(show_immediate ? immediate_plot : na, title="Immediate Δ (scaled)", color=color.yellow, linewidth=2, style=plot.style_line)
 plot(show_cvd ? cvd_plot : na, title="CVD (daily reset)", color=color.purple, linewidth=2)
 plot(show_zero ? 0 : na, title="Zero", color=color.gray)
