@@ -37,6 +37,19 @@ Ten zestaw to DWIE rzeczy pracujące razem:
 
 ## 🧬 Jak to się łączy (mentalna mapka)
 
+| Nazwa | Co to znaczy (prosto) |
+|-------|-----------------------|
+| Order Blocks (OB) | Miejsca, gdzie wcześniej były duże zlecenia — często działają jak wsparcie/opór. |
+| VWAP bias | Średnia ważona wolumenem: jeśli cena jest powyżej → preferuj longy, poniżej → preferuj shorty. |
+| Volume Profile (POC/VAH/VAL) | Pokazuje na jakich poziomach było najwięcej handlu; POC = najważniejszy poziom. |
+| Impuls wolumenowy (⚡) | Duży wzrost wolumenu na jednej świecy — znak, że pojawiła się siła (może start ruchu). |
+| Follow‑up (✔) | Kolejna świeca idąca w tym samym kierunku po impulsie — potwierdzenie, że impuls nie był przypadkiem. |
+| Delta bubbles | Kolorowe bąbelki pokazujące przewagę kupujących (zielone) lub sprzedających (czerwone). Im większy bąbel, tym mocniejsza agresja. |
+| CVD trend | Kumulatywna delta — ogólny kierunek przepływu zleceń (czy dominują kupujący, czy sprzedający). |
+| Rolling CumΔ | Lokalna (krótsza) wersja CVD — szybciej reaguje na zmiany przepływu. |
+| Immediate Δ (żółta) | Krótkoterminowy impuls delty — pokazuje świeżą, agresywną aktywność (szybki sygnał). |
+| Divergence | Gdy cena robi nowe szczyty/dołki, a delta (CVD/Rolling) tego nie potwierdza — sygnał możliwego wyczerpania ruchu. |
+
 ```
 ┌────────────────────┐    ┌────────────────────┐    ┌────────────────────┐
 │     STRUKTURA      │    │     ORDER FLOW     │    │       IMPULS       │
