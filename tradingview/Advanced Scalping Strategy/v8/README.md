@@ -38,30 +38,30 @@ Ten zestaw to DWIE rzeczy pracujące razem:
 ## 🧬 Jak to się łączy (mentalna mapka)
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   STRUKTURA     │    │   ORDER FLOW    │    │     IMPULS      │
-│                 │    │                 │    │                 │
-│ • Order Blocks  │    │ • CVD trend     │    │ • Wolumen ⚡     │
-│ • VWAP bias     │ ───▶│ • Rolling CumΔ  │◀─── │ • Follow-up ✔   │
-│ • Volume Profile│    │ • Immediate Δ   │    │ • Delta bubbles │
-│ • POC/VAH/VAL   │    │ • Divergence    │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └──────────────┬────────┴────────┬───────────────┘
-                        ▼                 ▼
-               ┌─────────────────────────┐
-               │   KANDYDAT NA WEJŚCIE   │
-               │                         │
-               │ ✓ Świeża strefa (OB)    │
-               │ ✓ Impulse + Follow-up   │
-               │ ✓ CVD nie przeciw       │
-               │ ✓ Brak divergence       │
-               │ ✓ Delta bubble ≥ próg   │
-               └─────────────────────────┘
-                        │
-              ┌─────────┴─────────┐
-              ▼                   ▼
-         [ 🟢 TRADE ]        [ 🔴 SKIP ]
+┌────────────────────┐    ┌────────────────────┐    ┌────────────────────┐
+│     STRUKTURA      │    │     ORDER FLOW     │    │       IMPULS       │
+│                    │    │                    │    │                    │
+│ • Order Blocks     │    │ • CVD trend        │    │ • Wolumen ⚡       │
+│ • VWAP bias        │──▶ │ • Rolling CumΔ     │◀──│ • Follow-up ✔      │
+│ • Volume Profile   │    │ • Immediate Δ      │    │ • Delta bubbles    │
+│ • POC/VAH/VAL      │    │ • Divergence       │    │                    │
+└────────────────────┘    └────────────────────┘    └────────────────────┘
+         │                      │                        │
+         └──────────────────────┼────────────────────────┘
+                                ▼
+                    ┌────────────────────────────┐
+                    │    KANDYDAT NA WEJŚCIE     │
+                    │                            │
+                    │ ✓ Świeża strefa (OB)       │
+                    │ ✓ Impulse + Follow-up      │
+                    │ ✓ CVD nie przeciw          │
+                    │ ✓ Brak divergence          │
+                    │ ✓ Delta bubble ≥ próg      │
+                    └────────────────────────────┘
+                                │
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+               [ 🟢 TRADE ]           [ 🔴 SKIP ]
 ```
 
 ## 🏁 Najkrótsza ścieżka startowa (30–40 minut)
