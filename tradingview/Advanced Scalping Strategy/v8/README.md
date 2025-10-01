@@ -36,15 +36,32 @@ Ten zestaw to DWIE rzeczy pracujące razem:
 - Masz instrument z realnym wolumenem (mikro altcoiny odpadają).
 
 ## 🧬 Jak to się łączy (mentalna mapka)
+
 ```
-ORDER FLOW (delta → CVD / Rolling / Immediate) ┐
-						    ├→ KONTEKST (siła / zmiana / wyczerpanie)
-STRUKTURA (Order Block + VWAP + VP POC)    ┐  │
-IMPULS (wolumen + świeca) + FOLLOW-UP      ┴──┘
-	      ↓
-      KANDYDAT NA WEJŚCIE
-	      ↓ (filtry: CVD trend / brak divergence / bubble ≥ próg)
-	 TRADE lub SKIP
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   STRUKTURA     │    │   ORDER FLOW    │    │     IMPULS      │
+│                 │    │                 │    │                 │
+│ • Order Blocks  │    │ • CVD trend     │    │ • Wolumen ⚡    │
+│ • VWAP bias     │───▶│ • Rolling CumΔ  │◀───│ • Follow-up ✔  │
+│ • Volume Profile│    │ • Immediate Δ   │    │ • Delta bubbles │
+│ • POC/VAH/VAL   │    │ • Divergence    │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 ▼
+                    ┌─────────────────────────┐
+                    │   KANDYDAT NA WEJŚCIE   │
+                    │                         │
+                    │ ✓ Świeża strefa (OB)    │
+                    │ ✓ Impulse + Follow-up   │
+                    │ ✓ CVD nie przeciw       │
+                    │ ✓ Brak divergence       │
+                    │ ✓ Delta bubble ≥ próg   │
+                    └─────────────────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    ▼                         ▼
+              [ 🟢 TRADE ]              [ 🔴 SKIP ]
 ```
 
 ## 🏁 Najkrótsza ścieżka startowa (30–40 minut)
